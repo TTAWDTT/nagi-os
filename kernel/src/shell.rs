@@ -23,6 +23,10 @@ pub fn run(command: &str) {
         show_explain(topic);
         return;
     }
+    if let Some(topic) = command_arg(command, "demo") {
+        show_demo(topic);
+        return;
+    }
     if let Some(name) = command_arg(command, "cat") {
         show_cat(name);
         return;
@@ -55,6 +59,7 @@ pub fn run(command: &str) {
         "trace" => show_trace(),
         "timeline" => show_timeline(),
         "explain" => show_explain("overview"),
+        "demo" => show_demo("overview"),
         "clear" => {
             clear_output();
         }
@@ -72,7 +77,7 @@ fn show_help() {
     write_output(5, "  viz    - visual kernel dashboard");
     write_output(6, "  ps sched - task and scheduler state");
     write_output(7, "  ls cat echo rm");
-    write_output(8, "  syscall timeline explain");
+    write_output(8, "  syscall timeline explain demo");
 }
 
 fn show_ticks() {
@@ -164,6 +169,77 @@ fn show_explain(topic: &str) {
             write_output(3, "  explain mem");
             write_output(4, "  explain syscall");
             write_output(5, "goal: make kernel internals teachable");
+        }
+    }
+}
+
+fn show_demo(topic: &str) {
+    clear_output();
+    trace::record(trace::TraceKind::Demo, topic.len() as u64, topic);
+    match topic {
+        "timer" => {
+            write_output(0, "demo timer:");
+            write_stat_line(1, "current PIT ticks", pit::ticks());
+            write_stat_line(2, "PIT frequency Hz", pit::CONFIGURED_FREQUENCY_HZ as u64);
+            write_output(3, "wait one second, then run ticks");
+            write_output(4, "observe: trace timer, sysstat");
+        }
+        "keyboard" | "kbd" => {
+            write_output(0, "demo keyboard:");
+            write_stat_line(1, "keyboard IRQ count", keyboard::irq_count());
+            write_output(2, "type any command and press Enter");
+            write_output(3, "observe: trace keyboard");
+        }
+        "sched" | "schedule" => {
+            write_output(0, "demo scheduler:");
+            write_stat_line(1, "current pid", task::current_pid() as u64);
+            write_stat_line(2, "switches", task::switches() as u64);
+            write_output(3, "wait, then run ps or sched again");
+            write_output(4, "observe: trace sched");
+        }
+        "mem" | "memory" => {
+            let page = mem::alloc_page("demo");
+            if let Some(page) = page {
+                let _ = mem::free_page(page, "demo-free");
+                write_output(0, "demo memory:");
+                write_stat_line(1, "allocated and freed page", page as u64);
+                write_output(2, "observe: mem, trace mem");
+            } else {
+                write_output(0, "demo memory: allocation failed");
+            }
+        }
+        "fs" | "file" => {
+            let _ = fs::create_or_write("demo", "RAMFS demo file");
+            write_output(0, "demo filesystem:");
+            write_output(1, "created file: demo");
+            write_output(2, "try: ls");
+            write_output(3, "try: cat demo");
+            write_output(4, "observe: trace file");
+        }
+        "syscall" | "sys" => {
+            let ret = syscall::invoke(syscall::SYS_TIME, 0, "demo-time");
+            write_output(0, "demo syscall:");
+            write_stat_line(1, "sys_time return", ret);
+            write_stat_line(2, "last syscall", syscall::last_number());
+            write_stat_line(3, "last return", syscall::last_return());
+            write_output(4, "observe: trace syscall");
+        }
+        "trace" => {
+            trace::record(trace::TraceKind::Demo, 1, "trace-demo");
+            write_output(0, "demo trace:");
+            write_output(1, "emitted DEMO trace event");
+            write_output(2, "try: trace demo");
+            write_output(3, "try: timeline");
+        }
+        _ => {
+            write_output(0, "demo topics:");
+            write_output(1, "  demo timer");
+            write_output(2, "  demo keyboard");
+            write_output(3, "  demo sched");
+            write_output(4, "  demo mem");
+            write_output(5, "  demo fs");
+            write_output(6, "  demo syscall");
+            write_output(7, "  demo trace");
         }
     }
 }
