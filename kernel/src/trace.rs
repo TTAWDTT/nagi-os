@@ -14,15 +14,25 @@ pub enum TraceKind {
     Timer,
     Keyboard,
     Shell,
+    Memory,
+    Schedule,
+    Syscall,
+    File,
+    Demo,
 }
 
 impl TraceKind {
-    fn as_str(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             TraceKind::Boot => "BOOT",
             TraceKind::Timer => "TIMER",
             TraceKind::Keyboard => "KEYBD",
             TraceKind::Shell => "SHELL",
+            TraceKind::Memory => "MEM",
+            TraceKind::Schedule => "SCHED",
+            TraceKind::Syscall => "SYSC",
+            TraceKind::File => "FILE",
+            TraceKind::Demo => "DEMO",
         }
     }
 }

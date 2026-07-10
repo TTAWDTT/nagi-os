@@ -1,4 +1,4 @@
-use crate::{keyboard, klog, pit, serial, trace, vga};
+use crate::{keyboard, klog, mem, pit, serial, trace, vga};
 
 const OUTPUT_START_ROW: usize = 15;
 const OUTPUT_ROWS: usize = 9;
@@ -20,6 +20,7 @@ pub fn run(command: &str) {
         "help" => show_help(),
         "ticks" => show_ticks(),
         "sysstat" => show_sysstat(),
+        "mem" => show_mem(),
         "klog" => show_klog(),
         "trace" => show_trace(),
         "clear" => {
@@ -35,9 +36,10 @@ fn show_help() {
     write_output(1, "  help   - show this command list");
     write_output(2, "  ticks  - show PIT timer ticks");
     write_output(3, "  sysstat - show observable kernel stats");
-    write_output(4, "  klog   - show early kernel events");
-    write_output(5, "  trace  - show recent trace events");
-    write_output(6, "  clear  - clear shell output");
+    write_output(4, "  mem    - show physical page allocator");
+    write_output(5, "  klog   - show early kernel events");
+    write_output(6, "  trace  - show recent trace events");
+    write_output(7, "  clear  - clear shell output");
 }
 
 fn show_ticks() {
@@ -64,14 +66,29 @@ fn show_sysstat() {
     write_stat_line(4, "keyboard irq1", keyboard::irq_count());
     write_stat_pair(5, "klog events", klog::len() as u64, klog::capacity() as u64);
     write_stat_pair(6, "trace events", trace::len() as u64, trace::capacity() as u64);
-    write_output(7, "interrupts: IDT loaded, PIC remapped");
-    write_output(8, "shell: help ticks sysstat klog trace clear");
+    let memory = mem::stats();
+    write_stat_pair(7, "memory pages", memory.used_pages as u64, memory.total_pages as u64);
+    write_output(8, "shell: help ticks sysstat mem klog trace clear");
 }
 
 fn show_trace() {
     clear_output();
     write_output(0, "recent trace events:");
     trace::dump_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1);
+}
+
+fn show_mem() {
+    clear_output();
+    let stats = mem::stats();
+    write_output(0, "physical page allocator:");
+    write_stat_line(1, "page size bytes", stats.page_size as u64);
+    write_stat_line(2, "total pages", stats.total_pages as u64);
+    write_stat_line(3, "reserved pages", stats.reserved_pages as u64);
+    write_stat_pair(4, "used/free pages", stats.used_pages as u64, stats.free_pages as u64);
+    write_stat_line(5, "alloc calls", stats.allocations as u64);
+    write_stat_line(6, "free calls", stats.frees as u64);
+    write_stat_line(7, "failed allocs", stats.failed_allocations as u64);
+    write_memory_bar(8);
 }
 
 fn show_unknown(command: &str) {
@@ -116,6 +133,30 @@ fn write_stat_pair(offset: usize, label: &str, used: u64, total: u64) {
     len = copy_bytes(&mut line, len, b"/");
     len = append_u64(&mut line, len, total);
     write_output(offset, as_str(&line[..len]));
+}
+
+fn write_memory_bar(offset: usize) {
+    let stats = mem::stats();
+    let mut line = [0u8; 80];
+    let mut len = copy_bytes(&mut line, 0, b"pages: [");
+    let cells = 32usize;
+    let mut i = 0;
+    while i < cells {
+        let page = i * stats.total_pages / cells;
+        let byte = if mem::is_used(page) { b'#' } else { b'.' };
+        len = copy_byte(&mut line, len, byte);
+        i += 1;
+    }
+    len = copy_bytes(&mut line, len, b"]");
+    write_output(offset, as_str(&line[..len]));
+}
+
+fn copy_byte(dst: &mut [u8], idx: usize, byte: u8) -> usize {
+    if idx >= dst.len() {
+        return idx;
+    }
+    dst[idx] = byte;
+    idx + 1
 }
 
 fn trim(text: &str) -> &str {

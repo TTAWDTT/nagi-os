@@ -7,6 +7,7 @@ mod console;
 mod idt;
 mod keyboard;
 mod klog;
+mod mem;
 mod pic;
 mod pit;
 mod port;
@@ -31,6 +32,7 @@ pub extern "C" fn _start() -> ! {
     trace::init();
     trace::record(trace::TraceKind::Boot, 0, "kernel");
     klog::record(klog::EventType::Boot, 0, 0, "kernel");
+    mem::init();
     klog::record(klog::EventType::Trace, 1, 0, "trace-ready");
     idt::init();
     klog::record(klog::EventType::Trace, 2, 0, "idt-ready");
@@ -50,7 +52,8 @@ pub extern "C" fn _start() -> ! {
     vga::write_line(7, "kernel: IDT exception gates loaded", ok);
     vga::write_line(8, "kernel: PIC remapped and PIT 100Hz enabled", ok);
     vga::write_line(9, "kernel: keyboard IRQ1 enabled", ok);
-    vga::write_line(11, "early klog: 6 events recorded", normal);
+    vga::write_line(10, "kernel: physical page allocator ready", ok);
+    vga::write_line(11, "early klog: memory, trace, irq events recorded", normal);
     vga::write_line(12, "status: ready for shell and scheduler", normal);
     keyboard::init_screen();
     shell::init();

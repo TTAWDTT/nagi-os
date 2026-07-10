@@ -15,6 +15,7 @@ pub enum EventType {
     Trace,
     Syscall,
     Schedule,
+    Memory,
     File,
 }
 
@@ -25,6 +26,7 @@ impl EventType {
             EventType::Trace => "TRACE",
             EventType::Syscall => "SYSCALL",
             EventType::Schedule => "SCHED",
+            EventType::Memory => "MEM",
             EventType::File => "FILE",
         }
     }
