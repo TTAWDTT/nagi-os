@@ -30,6 +30,7 @@ pub fn run(command: &str) {
         "ticks" => show_ticks(),
         "sysstat" => show_sysstat(),
         "mem" => show_mem(),
+        "viz" => show_viz(),
         "ps" => show_ps(),
         "sched" => show_sched(),
         "syscall" => show_syscall("demo"),
@@ -55,8 +56,8 @@ fn show_help() {
     write_output(2, "  ticks  - show PIT timer ticks");
     write_output(3, "  sysstat - show observable kernel stats");
     write_output(4, "  mem    - show physical page allocator");
-    write_output(5, "  ps     - list kernel task model");
-    write_output(6, "  sched  - show scheduler state");
+    write_output(5, "  viz    - visual kernel dashboard");
+    write_output(6, "  ps sched - task and scheduler state");
     write_output(7, "  syscall timeline explain");
     write_output(8, "  klog trace clear");
 }
@@ -168,6 +169,20 @@ fn show_mem() {
     write_memory_bar(8);
 }
 
+fn show_viz() {
+    clear_output();
+    let memory = mem::stats();
+    write_output(0, "observable kernel dashboard:");
+    write_bar(1, "mem", memory.used_pages as u64, memory.total_pages as u64);
+    write_bar(2, "trace", trace::len() as u64, trace::capacity() as u64);
+    write_bar(3, "klog", klog::len() as u64, klog::capacity() as u64);
+    write_bar(4, "irq", keyboard::irq_count(), 32);
+    write_bar(5, "sched", task::switches() as u64, 32);
+    write_stat_line(6, "pit ticks", pit::ticks());
+    write_stat_line(7, "syscall calls", syscall::calls());
+    write_output(8, "try: mem ps sched trace irq timeline");
+}
+
 fn show_ps() {
     clear_output();
     write_output(0, "kernel tasks:");
@@ -266,6 +281,26 @@ fn write_memory_bar(offset: usize) {
         i += 1;
     }
     len = copy_bytes(&mut line, len, b"]");
+    write_output(offset, as_str(&line[..len]));
+}
+
+fn write_bar(offset: usize, label: &str, value: u64, max: u64) {
+    let mut line = [0u8; 80];
+    let mut len = copy_bytes(&mut line, 0, label.as_bytes());
+    len = copy_bytes(&mut line, len, b": [");
+    let cells = 24u64;
+    let capped = if value > max { max } else { value };
+    let filled = if max == 0 { 0 } else { capped * cells / max };
+    let mut i = 0;
+    while i < cells {
+        let byte = if i < filled { b'#' } else { b'.' };
+        len = copy_byte(&mut line, len, byte);
+        i += 1;
+    }
+    len = copy_bytes(&mut line, len, b"] ");
+    len = append_u64(&mut line, len, value);
+    len = copy_bytes(&mut line, len, b"/");
+    len = append_u64(&mut line, len, max);
     write_output(offset, as_str(&line[..len]));
 }
 
