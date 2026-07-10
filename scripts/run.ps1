@@ -1,6 +1,8 @@
 param(
-    [ValidateSet("sdl", "gtk", "curses", "serial", "none")]
-    [string]$Display = "curses"
+    [ValidateSet("sdl", "gtk", "curses", "serial", "none", "vnc")]
+    [string]$Display = "curses",
+
+    [int]$VncDisplay = 1
 )
 
 $ErrorActionPreference = "Stop"
@@ -32,8 +34,13 @@ if ($DisplayMode -eq "none") {
 $QemuArgs = "-drive file='$ImageWsl',format=raw,if=floppy,snapshot=on -boot a"
 if ($DisplayMode -eq "serial") {
     $QemuArgs = "$QemuArgs -display none -serial stdio -monitor none -no-reboot"
+} elseif ($DisplayMode -eq "vnc") {
+    $VncPort = 5900 + $VncDisplay
+    Write-Host "QEMU VNC display :$VncDisplay is listening on localhost:$VncPort"
+    Write-Host "Open it with a VNC viewer to see the real VGA palette."
+    $QemuArgs = "$QemuArgs -display none -vnc :$VncDisplay"
 } else {
     $QemuArgs = "$QemuArgs -display $DisplayMode"
 }
 
-wsl --exec bash -lc "qemu-system-x86_64 $QemuArgs"
+wsl --exec bash -lc "TERM=xterm-256color qemu-system-x86_64 $QemuArgs"

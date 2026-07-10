@@ -81,6 +81,7 @@ const COMMANDS: &[&str] = &[
     "demo syscall",
     "demo trace",
     "bench trace",
+    "colors",
     "clear",
     "cls",
 ];
@@ -193,6 +194,7 @@ pub fn run(command: &str) {
         "trace" => show_trace(),
         "bench" => show_bench("overview"),
         "bench trace" | "b" => show_bench("trace"),
+        "colors" => show_colors(),
         "run" | "programs" | "r" => show_run("overview"),
         "timeline" | "t" => show_timeline(),
         "explain" => show_explain("overview"),
@@ -214,7 +216,32 @@ fn show_help() {
     write_key_line(4, "t", "timeline   g guide      n next");
     write_key_line(5, "r", "programs   b bench      d demos");
     write_key_line(6, "q", "clear");
-    write_output(8, "more: help obs, help fs, help demo");
+    write_output(8, "more: help obs, help fs, help demo, colors");
+}
+
+fn show_colors() {
+    clear_output();
+    write_output(0, "VGA palette check:");
+
+    write_color_sample(1, 2, "0 black", vga::Color::Black);
+    write_color_sample(1, 22, "1 blue", vga::Color::Blue);
+    write_color_sample(1, 42, "2 green", vga::Color::Green);
+    write_color_sample(1, 62, "3 cyan", vga::Color::Cyan);
+
+    write_color_sample(3, 2, "4 red", vga::Color::Red);
+    write_color_sample(3, 22, "5 magenta", vga::Color::Magenta);
+    write_color_sample(3, 42, "6 brown", vga::Color::Brown);
+    write_color_sample(3, 62, "7 lightgray", vga::Color::LightGray);
+
+    write_color_sample(5, 2, "8 darkgray", vga::Color::DarkGray);
+    write_color_sample(5, 22, "9 lightblue", vga::Color::LightBlue);
+    write_color_sample(5, 42, "10 lightgreen", vga::Color::LightGreen);
+    write_color_sample(5, 62, "11 lightcyan", vga::Color::LightCyan);
+
+    write_color_sample(7, 2, "12 lightred", vga::Color::LightRed);
+    write_color_sample(7, 22, "13 pink", vga::Color::Pink);
+    write_color_sample(7, 42, "14 yellow", vga::Color::Yellow);
+    write_color_sample(7, 62, "15 white", vga::Color::White);
 }
 
 fn show_help_topic(topic: &str) {
@@ -735,6 +762,14 @@ fn write_key_line(offset: usize, key: &str, text: &str) {
     vga::write_line(OUTPUT_START_ROW + offset, "", text_color);
     vga::write_at(OUTPUT_START_ROW + offset, 2, key, key_color);
     vga::write_at(OUTPUT_START_ROW + offset, 5, text, text_color);
+}
+
+fn write_color_sample(offset: usize, col: usize, text: &str, fg: vga::Color) {
+    if offset >= OUTPUT_ROWS {
+        return;
+    }
+    let color = vga::make_color(fg, vga::Color::Black);
+    vga::write_at(OUTPUT_START_ROW + offset, col, text, color);
 }
 
 fn write_stat_line(offset: usize, label: &str, value: u64) {
