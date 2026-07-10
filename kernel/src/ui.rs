@@ -81,12 +81,13 @@ pub fn draw_footer(status: &str) {
 
 pub fn draw_prompt(input: &str, suggestion: Option<&str>, cursor: usize, full: bool) {
     let base = vga::make_color(vga::Color::LightGray, vga::Color::Black);
+    let input_color = vga::make_color(vga::Color::LightBlue, vga::Color::Black);
     let prompt = vga::make_color(vga::Color::LightCyan, vga::Color::Black);
     let ghost = vga::make_color(vga::Color::DarkGray, vga::Color::Black);
     let warn = vga::make_color(vga::Color::Yellow, vga::Color::Black);
     vga::write_line(PROMPT_ROW, "", base);
     vga::write_at(PROMPT_ROW, 2, ">", prompt);
-    vga::write_at(PROMPT_ROW, 4, input, base);
+    vga::write_at(PROMPT_ROW, 4, input, input_color);
     let cursor_col = 4 + cursor;
 
     if let Some(candidate) = suggestion {
