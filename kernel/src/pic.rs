@@ -47,6 +47,13 @@ pub fn enable_timer() {
     }
 }
 
+pub fn enable_keyboard() {
+    unsafe {
+        let mask = port::inb(PIC1_DATA) & !0x02;
+        port::outb(PIC1_DATA, mask);
+    }
+}
+
 pub fn end_of_interrupt(vector: u8) {
     unsafe {
         if vector >= PIC2_OFFSET {

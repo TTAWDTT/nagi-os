@@ -26,7 +26,7 @@ pub fn write_str(s: &str) {
     }
 }
 
-fn write_byte(byte: u8) {
+pub fn write_byte(byte: u8) {
     while unsafe { inb(COM1 + 5) } & 0x20 == 0 {}
     unsafe {
         outb(COM1, byte);
@@ -56,4 +56,3 @@ unsafe fn inb(port: u16) -> u8 {
     }
     value
 }
-

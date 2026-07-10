@@ -2,7 +2,7 @@ use core::arch::{asm, global_asm};
 use core::cell::UnsafeCell;
 use core::mem::size_of;
 
-use crate::{pic, pit, serial, vga};
+use crate::{keyboard, pic, pit, serial, vga};
 
 const IDT_LEN: usize = 256;
 const KERNEL_CODE_SELECTOR: u16 = 0x18;
@@ -549,6 +549,8 @@ pub extern "C" fn rust_irq_handler(vector: u64) {
         if tick == 1 {
             serial::write_str("PIT timer interrupt online\r\n");
         }
+    } else if vector == pic::PIC1_OFFSET as u64 + 1 {
+        keyboard::handle_interrupt();
     }
 
     pic::end_of_interrupt(vector as u8);
