@@ -1,6 +1,6 @@
 use core::sync::atomic::{AtomicU64, Ordering};
 
-use crate::{port, serial, shell, vga};
+use crate::{port, serial, shell, trace, vga};
 
 const KEYBOARD_DATA_PORT: u16 = 0x60;
 const KEYBOARD_STATUS_PORT: u16 = 0x64;
@@ -73,6 +73,7 @@ fn handle_key(key: Key) {
                     INPUT[INPUT_LEN] = byte;
                     INPUT_LEN += 1;
                     serial::write_byte(byte);
+                    trace::record(trace::TraceKind::Keyboard, byte as u64, "key");
                 }
             }
             Key::Backspace => {
@@ -80,10 +81,12 @@ fn handle_key(key: Key) {
                     INPUT_LEN -= 1;
                     INPUT[INPUT_LEN] = 0;
                     serial::write_str("\x08 \x08");
+                    trace::record(trace::TraceKind::Keyboard, 8, "backspace");
                 }
             }
             Key::Enter => {
                 serial::write_str("\r\n");
+                trace::record(trace::TraceKind::Keyboard, INPUT_LEN as u64, "enter");
                 shell::run(as_str(&INPUT[..INPUT_LEN]));
                 INPUT_LEN = 0;
                 let mut i = 0;

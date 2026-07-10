@@ -12,6 +12,7 @@ mod pit;
 mod port;
 mod serial;
 mod shell;
+mod trace;
 mod vga;
 
 #[unsafe(no_mangle)]
@@ -27,6 +28,8 @@ pub extern "C" fn _start() -> ! {
     vga::write_line(1, "A Rust-based observable teaching operating system", normal);
 
     klog::init();
+    trace::init();
+    trace::record(trace::TraceKind::Boot, 0, "kernel");
     klog::record(klog::EventType::Boot, 0, 0, "kernel");
     klog::record(klog::EventType::Trace, 1, 0, "trace-ready");
     idt::init();

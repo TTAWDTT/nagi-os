@@ -26,8 +26,9 @@
 - IDT 与 CPU 异常诊断
 - PIC 重映射与 PIT 100Hz 定时器中断
 - 键盘 IRQ1 与基础扫描码输入
-- 最小交互式 shell：`help`、`ticks`、`sysstat`、`klog`、`clear`
+- 最小交互式 shell：`help`、`ticks`、`sysstat`、`klog`、`trace`、`clear`
 - `sysstat` 可观测系统状态面板
+- `trace` 近期内核事件追踪
 - 早期内核事件日志 (`klog`) 骨架
 
 ## 项目目标
