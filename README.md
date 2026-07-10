@@ -1,75 +1,187 @@
+<p align="center">
+  <img src="logo.png" alt="Nagi OS logo" width="150" height="150" />
+</p>
+
 # Nagi OS
 
-**Nagi OS** is a Rust-based observable teaching operating system.
+**Nagi OS** 是一个由 Rust 构建的教学性质操作系统，也是 2024 年同济国豪软工班某四人组的操作系统课程设计。
 
-The name comes from **凪**: calm, windless, and stable. The project goal is to
-make a small operating system that turns low-level hardware and concurrent
-kernel activity into a calm, inspectable environment.
+名字来源于日文中的 **「凪」**，寓意为冷静、无风、稳定。该项目的目标是打造一个微型操作系统，将底层硬件和并发的内核活动转化为一个沉浸式、可观测的环境。
 
-## Current Status
+## 项目当前状态
 
-This repository currently boots a minimal x86_64 kernel:
+此仓库当前可引导一个极小的 x86_64 核，已实现以下特性:
 
-- 16-bit stage1 boot sector
-- stage2 loader
-- transition to 64-bit long mode
-- Rust `#![no_std]` kernel
-- VGA text console
-- early kernel event log (`klog`) skeleton
+- 16-bit 模式下的 stage 1 引导扇区
+- stage2 加载器
+- 切换/过渡到 64-bit 长模式
+- Rust `#![no_std]` 内核
+- VGA 文本模式控制台
+- 早期内核事件日志 (`klog`) 骨架
 
-## Project Goals
+## 项目目标
 
-For the operating system course design, Nagi OS aims to include:
+针对操作系统课程设计，Nagi OS 计划包含以下内容：
 
-- bootloader and kernel entry
-- console and keyboard
-- interrupts and timer
-- cooperative/preemptive task scheduling
-- system calls
-- simple shell
-- simple file system
-- observable-kernel features:
+- 引导加载器与内核入口
+- 控制台与键盘
+- 中断与定时器
+- 协作式/抢占式任务调度
+- 系统调用
+- 简单 shell
+- 简单文件系统
+- 可观测内核特性：
   - `ps`
   - `sysstat`
   - `trace`
   - `klog`
-  - benchmark commands
+  - 基准测试命令
 
-## Build on Windows + WSL
+## 如何构建和运行
 
-One-command setup:
+Nagi OS 是一个裸机操作系统项目。Rust 负责编译内核，NASM 负责汇编
+bootloader，QEMU 负责模拟启动这个操作系统。
+
+### Windows + WSL
+
+推荐在 Windows PowerShell 中操作，并通过 WSL Ubuntu 提供 NASM、QEMU、
+`objcopy` 等底层工具。
+
+#### 1. 安装 Rust
 
 ```powershell
-Set-ExecutionPolicy -Scope Process Bypass -Force; .\scripts\setup.ps1
+winget install --id Rustlang.Rustup -e
 ```
 
-Verify:
+安装完成后，重新打开 PowerShell，然后验证：
 
 ```powershell
+rustc --version
+cargo --version
+rustup --version
+```
+
+#### 2. 添加裸机编译目标
+
+```powershell
+rustup target add x86_64-unknown-none
+```
+
+验证 target 是否装好：
+
+```powershell
+rustup target list --installed
+```
+
+输出中应该能看到：
+
+```text
+x86_64-unknown-none
+```
+
+#### 3. 安装 WSL 工具
+
+如果还没有 WSL Ubuntu，先安装：
+
+```powershell
+wsl --install -d Ubuntu
+```
+
+安装完成后，打开 Ubuntu 初始化用户，然后回到 PowerShell，安装构建和运行
+Nagi OS 需要的工具：
+
+```powershell
+wsl --exec bash -lc "sudo apt-get update && sudo apt-get install -y nasm qemu-system-x86 binutils"
+```
+
+#### 4. 构建系统镜像
+
+```powershell
+cd D:\Github\nagi-os
 .\scripts\build.ps1
+```
+
+构建成功后会生成：
+
+```text
+build\nagi-os.img
+```
+
+#### 5. 快速验证能否启动
+
+```powershell
 .\scripts\smoke.ps1
+```
+
+成功时会看到类似输出：
+
+```text
+Nagi OS booted
+QEMU_STILL_RUNNING_AFTER_5S
+```
+
+这表示内核已经启动，并且没有立刻崩溃退出。
+
+#### 6. 打开 QEMU 窗口运行
+
+```powershell
 .\scripts\run.ps1
 ```
 
-The setup script expects WSL Ubuntu to be available. If WSL is not installed
-yet, run `wsl --install -d Ubuntu` first, then reopen PowerShell and rerun the
-setup command.
+启动后可以看到 Nagi OS 的 VGA 文本界面。
 
-## Build on Linux
+### Linux
+
+#### 1. 安装 Rust
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source "$HOME/.cargo/env"
+```
+
+`source "$HOME/.cargo/env"` 用于让当前终端立刻识别 `rustc`、`cargo`、
+`rustup` 等 Rust 命令。
+
+验证：
+
+```bash
+rustc --version
+cargo --version
+rustup --version
+```
+
+#### 2. 添加裸机编译目标
 
 ```bash
 rustup target add x86_64-unknown-none
+```
+
+#### 3. 安装构建和运行工具
+
+```bash
+sudo apt-get update
 sudo apt-get install -y nasm qemu-system-x86 binutils
+```
+
+#### 4. 构建和运行
+
+```bash
+git clone https://github.com/TTAWDTT/nagi-os.git
+cd nagi-os
 make
 make run
 ```
 
-## Course Design Positioning
+也可以只构建不运行：
 
-Nagi OS is not a direct modification of Orange'S. It uses Orange'S and xv6 as
-references for OS concepts, while the implementation is Rust-first and focused
-on kernel observability.
+```bash
+make
+```
 
-The planned innovation is to expose internal kernel behavior through commands
-and logs so that scheduling, system calls, and file operations can be observed
-from inside the OS.
+## 课程设计定位
+
+Nagi OS 不是对 Orange'S 的直接修改。它将 Orange'S 和 xv6 作为操作系统概念
+学习参考，而实现本身以 Rust 为主，并重点聚焦内核可观测性。
+
+项目规划中的创新点，是通过命令和日志暴露内核内部行为，让调度、系统调用和
+文件操作都能在操作系统内部被观察到。
