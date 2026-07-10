@@ -1,5 +1,10 @@
 <p align="center">
   <img src="logo.png" alt="Nagi OS logo" width="200" height="200" />
+
+  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" />
+  <img src="https://img.shields.io/badge/language-Rust-orange.svg" alt="Language: Rust" />
+  <img src="https://img.shields.io/badge/target-x86__64-yellow.svg" alt="Target: x86_64" />
+  <img src="https://img.shields.io/badge/OS-baremetal-lightgrey.svg" alt="OS: baremetal" />
 </p>
 
 # Nagi OS
