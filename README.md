@@ -142,6 +142,17 @@ QEMU_STILL_RUNNING_AFTER_5S
 
 启动后可以看到 Nagi OS 的 VGA 文本界面。
 
+如果窗口没有正常弹出，可以换一个 QEMU 显示后端：
+
+```powershell
+.\scripts\run.ps1 -Display gtk
+.\scripts\run.ps1 -Display serial
+```
+
+`serial` 和 `none` 都会使用无窗口模式，只在终端里输出启动日志；这种模式主要
+用来确认内核是否成功启动，不能操作 VGA Shell。WSL 提示 localhost 代理未镜像
+通常不影响运行，可以先忽略。
+
 ### Linux
 
 #### 1. 安装 Rust

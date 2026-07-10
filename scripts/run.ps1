@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("sdl", "gtk", "curses", "none")]
+    [ValidateSet("sdl", "gtk", "curses", "serial", "none")]
     [string]$Display = "sdl"
 )
 
@@ -24,9 +24,16 @@ if (-not (Test-Path $Image)) {
 }
 
 $ImageWsl = Convert-ToWslPath $Image
-$QemuArgs = "-drive file='$ImageWsl',format=raw,if=floppy,readonly=on -boot a -display $Display"
-if ($Display -eq "none") {
-    $QemuArgs = "$QemuArgs -serial stdio -monitor none"
+$DisplayMode = $Display
+if ($DisplayMode -eq "none") {
+    $DisplayMode = "serial"
+}
+
+$QemuArgs = "-drive file='$ImageWsl',format=raw,if=floppy,snapshot=on -boot a"
+if ($DisplayMode -eq "serial") {
+    $QemuArgs = "$QemuArgs -display none -serial stdio -monitor none -no-reboot"
+} else {
+    $QemuArgs = "$QemuArgs -display $DisplayMode"
 }
 
 wsl --exec bash -lc "qemu-system-x86_64 $QemuArgs"
