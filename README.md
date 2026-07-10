@@ -26,9 +26,17 @@
 - IDT 与 CPU 异常诊断
 - PIC 重映射与 PIT 100Hz 定时器中断
 - 键盘 IRQ1 与基础扫描码输入
-- 最小交互式 shell：`help`、`ticks`、`sysstat`、`klog`、`trace`、`clear`
+- 最小交互式 shell 与课程展示命令
 - `sysstat` 可观测系统状态面板
-- `trace` 近期内核事件追踪
+- `mem` 物理页分配器状态与页位图
+- `ps` / `sched` 可观察任务表与轮转调度模型
+- `syscall` 系统调用表与 write/time/trace/stats 演示
+- `trace` 近期内核事件追踪，支持按类型过滤
+- `timeline` 内核事件时间线
+- `explain` 教学解释页
+- `viz` ASCII 内核状态可视化面板
+- `ls` / `cat` / `echo` / `rm` RAMFS 内存文件系统
+- `demo` 一键式课程答辩演示入口
 - 早期内核事件日志 (`klog`) 骨架
 
 ## 项目目标
@@ -38,16 +46,55 @@
 - 引导加载器与内核入口
 - 控制台与键盘
 - 中断与定时器
-- 协作式/抢占式任务调度
-- 系统调用
+- 可观察任务调度模型
+- 系统调用演示层
 - 简单 shell
-- 简单文件系统
+- RAMFS 内存文件系统
 - 可观测内核特性：
   - `ps`
   - `sysstat`
   - `trace`
   - `klog`
-  - 基准测试命令
+  - `timeline`
+  - `explain`
+  - `viz`
+  - `demo`
+
+## Shell 命令速查
+
+启动后可以在 `nagi>` 后输入命令：
+
+```text
+help              查看命令列表
+ticks             查看 PIT tick
+sysstat           查看系统状态
+mem               查看物理页分配器
+viz               查看 ASCII 状态面板
+ps                查看内核任务表
+sched             查看调度状态
+syscall           运行系统调用演示
+klog              查看内核日志
+trace             查看近期 trace
+trace irq         过滤中断事件
+trace sched       过滤调度事件
+trace mem         过滤内存事件
+trace syscall     过滤系统调用事件
+trace file        过滤文件系统事件
+timeline          查看统一事件时间线
+explain irq       解释中断路径
+explain sched     解释调度模型
+explain mem       解释内存模型
+explain syscall   解释系统调用模型
+ls                列出 RAMFS 文件
+cat readme        读取 RAMFS 文件
+echo hello > note 写入 note 文件
+rm note           删除 RAMFS 文件
+demo              查看演示主题
+demo sched        触发/说明调度演示
+demo fs           创建演示文件
+demo syscall      触发系统调用演示
+clear             清空输出区
+```
 
 ## 如何构建和运行
 

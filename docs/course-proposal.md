@@ -16,27 +16,29 @@ be inspectable from inside the OS.
 - Boot and long-mode entry
 - VGA console and keyboard input
 - IDT, PIC, PIT, and timer interrupt
-- Task table and scheduler
-- System call layer
+- Observable task table and round-robin scheduler model
+- System call demo layer
 - Shell and user commands
-- Simple single-directory file system
+- RAMFS single-directory file system
 - Kernel event log
-- System call tracing
-- Micro-benchmark commands
+- Filtered kernel tracing and timeline view
+- Guided demo commands
 
 ## Innovation
 
 The main innovation is an observability layer:
 
 - `klog`: inspect recent kernel events
-- `trace`: enable or disable syscall/file/scheduler tracing
-- `ps`: inspect process table
+- `trace`: filter boot/irq/mem/scheduler/syscall/file/demo events
+- `timeline`: inspect kernel activity as a chronological story
+- `ps`: inspect the task table
 - `sysstat`: inspect syscall counts and scheduler statistics
-- `bench`: compare selected workloads and trace overhead
+- `viz`: show an ASCII dashboard for memory, logs, IRQs, and scheduling
+- `explain`: turn kernel mechanisms into in-OS teaching notes
+- `demo`: trigger guided demonstrations for presentation and grading
 
 ## Relationship to Orange'S
 
 Orange'S is used as a learning reference and baseline. Nagi OS is implemented
 as a separate Rust-first project with its own boot path, kernel structure,
 observability model, and documentation.
-
