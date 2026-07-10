@@ -1,14 +1,15 @@
 use core::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::{fs, keyboard, klog, mem, pit, serial, syscall, task, trace, user, vga};
+use crate::{fs, keyboard, klog, mem, pit, serial, syscall, task, trace, ui, user, vga};
 
-const OUTPUT_START_ROW: usize = 15;
-const OUTPUT_ROWS: usize = 9;
+const OUTPUT_START_ROW: usize = ui::OUTPUT_START_ROW;
+const OUTPUT_ROWS: usize = ui::OUTPUT_ROWS;
 static TOUR_STEP: AtomicUsize = AtomicUsize::new(0);
 
 pub fn init() {
     clear_output();
     write_output(0, "type 'help' and press Enter");
+    write_output(1, "try: tour, viz, run, bench trace");
 }
 
 pub fn run(command: &str) {
@@ -42,6 +43,10 @@ pub fn run(command: &str) {
         show_bench(topic);
         return;
     }
+    if let Some(topic) = command_arg(command, "help") {
+        show_help_topic(topic);
+        return;
+    }
     if let Some(name) = command_arg(command, "run") {
         show_run(name);
         return;
@@ -73,12 +78,12 @@ pub fn run(command: &str) {
 
     match command {
         "" => {}
-        "help" => show_help(),
+        "help" | "?" => show_help(),
         "ticks" => show_ticks(),
-        "sysstat" => show_sysstat(),
+        "sysstat" | "status" => show_sysstat(),
         "mem" => show_mem(),
         "viz" => show_viz(),
-        "ls" => show_ls(),
+        "ls" | "files" => show_ls(),
         "ps" => show_ps(),
         "sched" => show_sched(),
         "syscall" => show_syscall("demo"),
@@ -89,12 +94,12 @@ pub fn run(command: &str) {
         "klog" => show_klog(),
         "trace" => show_trace(),
         "bench" => show_bench("overview"),
-        "run" => show_run("overview"),
+        "run" | "programs" => show_run("overview"),
         "timeline" => show_timeline(),
         "explain" => show_explain("overview"),
-        "tour" => show_tour("overview"),
+        "tour" | "guide" => show_tour("overview"),
         "demo" => show_demo("overview"),
-        "clear" => {
+        "clear" | "cls" => {
             clear_output();
         }
         _ => show_unknown(command),
@@ -103,15 +108,53 @@ pub fn run(command: &str) {
 
 fn show_help() {
     clear_output();
-    write_output(0, "commands:");
-    write_output(1, "  help   - show this command list");
-    write_output(2, "  ticks  - show PIT timer ticks");
-    write_output(3, "  sysstat - show observable kernel stats");
-    write_output(4, "  mem    - show physical page allocator");
-    write_output(5, "  viz    - visual kernel dashboard");
-    write_output(6, "  ps sched - task and scheduler state");
-    write_output(7, "  ls cat echo rm");
-    write_output(8, "  syscall run timeline tour bench");
+    write_output(0, "command guide:");
+    write_output(1, "  status     viz        timeline");
+    write_output(2, "  mem        ps         sched");
+    write_output(3, "  syscall    run        programs");
+    write_output(4, "  files      cat readme echo hi > note");
+    write_output(5, "  trace      trace irq  trace status");
+    write_output(6, "  tour       tour next  demo");
+    write_output(7, "  bench trace           clear/cls");
+    write_output(8, "more: help obs, help fs, help demo");
+}
+
+fn show_help_topic(topic: &str) {
+    clear_output();
+    match topic {
+        "obs" | "observe" => {
+            write_output(0, "observability commands:");
+            write_output(1, "  viz             dashboard");
+            write_output(2, "  timeline        chronological events");
+            write_output(3, "  trace irq       interrupt events");
+            write_output(4, "  trace sched     scheduler events");
+            write_output(5, "  trace mem       allocator events");
+            write_output(6, "  trace syscall   syscall events");
+            write_output(7, "  trace on/off/status");
+            write_output(8, "  bench trace     tracing overhead demo");
+        }
+        "fs" | "file" => {
+            write_output(0, "RAMFS commands:");
+            write_output(1, "  ls or files     list files");
+            write_output(2, "  cat readme      read a file");
+            write_output(3, "  echo hi > note  write note");
+            write_output(4, "  cat note        read note");
+            write_output(5, "  rm note         remove note");
+            write_output(6, "  demo fs         create demo file");
+            write_output(7, "  run files       user program writes file");
+        }
+        "demo" | "tour" => {
+            write_output(0, "presentation commands:");
+            write_output(1, "  tour            list tour pages");
+            write_output(2, "  tour next       advance tour");
+            write_output(3, "  demo            list demos");
+            write_output(4, "  demo syscall    syscall story");
+            write_output(5, "  demo fs         RAMFS story");
+            write_output(6, "  run hello       user program story");
+            write_output(7, "  explain sched   teaching note");
+        }
+        _ => show_help(),
+    }
 }
 
 fn show_ticks() {
@@ -564,16 +607,14 @@ fn show_unknown(command: &str) {
     let mut len = copy_bytes(&mut line, 0, b"unknown command: ");
     len = copy_bytes(&mut line, len, command.as_bytes());
     write_output(0, as_str(&line[..len]));
-    write_output(1, "try: help");
+    write_output(1, "try: help, ?, status, files, programs");
+    write_output(2, "presentation: tour, demo, bench trace");
+    write_output(3, "observability: viz, timeline, trace irq");
 }
 
 fn clear_output() {
-    let color = vga::make_color(vga::Color::LightGray, vga::Color::Black);
-    let mut row = 0;
-    while row < OUTPUT_ROWS {
-        vga::write_line(OUTPUT_START_ROW + row, "", color);
-        row += 1;
-    }
+    ui::clear_output("output");
+    ui::draw_footer("ready");
 }
 
 fn write_output(offset: usize, text: &str) {

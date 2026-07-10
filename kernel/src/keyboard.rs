@@ -1,15 +1,17 @@
 use core::sync::atomic::{AtomicU64, Ordering};
 
-use crate::{port, serial, shell, trace, vga};
+use crate::{port, serial, shell, trace, ui};
 
 const KEYBOARD_DATA_PORT: u16 = 0x60;
 const KEYBOARD_STATUS_PORT: u16 = 0x64;
-const INPUT_ROW: usize = 13;
 const INPUT_CAPACITY: usize = 62;
 
 static mut INPUT: [u8; INPUT_CAPACITY] = [0; INPUT_CAPACITY];
 static mut INPUT_LEN: usize = 0;
+static mut LAST_INPUT: [u8; INPUT_CAPACITY] = [0; INPUT_CAPACITY];
+static mut LAST_INPUT_LEN: usize = 0;
 static mut SHIFT: bool = false;
+static mut EXTENDED: bool = false;
 static mut SEEN_KEY: bool = false;
 static IRQ_COUNT: AtomicU64 = AtomicU64::new(0);
 
@@ -22,6 +24,13 @@ pub fn handle_interrupt() {
     IRQ_COUNT.fetch_add(1, Ordering::Relaxed);
     let scancode = unsafe { port::inb(KEYBOARD_DATA_PORT) };
 
+    if scancode == 0xE0 {
+        unsafe {
+            EXTENDED = true;
+        }
+        return;
+    }
+
     match scancode {
         0x2A | 0x36 => unsafe {
             SHIFT = true;
@@ -29,9 +38,16 @@ pub fn handle_interrupt() {
         0xAA | 0xB6 => unsafe {
             SHIFT = false;
         },
-        code if code & 0x80 != 0 => {}
+        code if code & 0x80 != 0 => unsafe {
+            EXTENDED = false;
+        },
         code => {
-            if let Some(key) = decode_scancode(code) {
+            let extended = unsafe {
+                let was_extended = EXTENDED;
+                EXTENDED = false;
+                was_extended
+            };
+            if let Some(key) = decode_scancode(code, extended) {
                 handle_key(key);
             }
         }
@@ -58,6 +74,7 @@ enum Key {
     Char(u8),
     Backspace,
     Enter,
+    Recall,
 }
 
 fn handle_key(key: Key) {
@@ -87,6 +104,7 @@ fn handle_key(key: Key) {
             Key::Enter => {
                 serial::write_str("\r\n");
                 trace::record(trace::TraceKind::Keyboard, INPUT_LEN as u64, "enter");
+                remember_input();
                 shell::run(as_str(&INPUT[..INPUT_LEN]));
                 INPUT_LEN = 0;
                 let mut i = 0;
@@ -95,6 +113,10 @@ fn handle_key(key: Key) {
                     i += 1;
                 }
             }
+            Key::Recall => {
+                recall_last_input();
+                trace::record(trace::TraceKind::Keyboard, LAST_INPUT_LEN as u64, "recall");
+            }
         }
     }
 
@@ -102,28 +124,51 @@ fn handle_key(key: Key) {
 }
 
 fn redraw() {
-    let color = vga::make_color(vga::Color::LightCyan, vga::Color::Black);
-    let mut line = [b' '; 80];
-    let mut idx = copy_bytes(&mut line, 0, b"nagi> ");
-
     unsafe {
-        let mut i = 0;
-        while i < INPUT_LEN && idx < line.len() {
-            line[idx] = INPUT[i];
-            idx += 1;
-            i += 1;
-        }
+        ui::draw_prompt(as_str(&INPUT[..INPUT_LEN]), INPUT_LEN >= INPUT_CAPACITY);
     }
-
-    vga::write_line(INPUT_ROW, as_str(&line), color);
 }
 
-fn decode_scancode(scancode: u8) -> Option<Key> {
+fn decode_scancode(scancode: u8, extended: bool) -> Option<Key> {
+    if extended {
+        return match scancode {
+            0x48 => Some(Key::Recall),
+            _ => None,
+        };
+    }
+
     match scancode {
         0x0E => Some(Key::Backspace),
         0x1C => Some(Key::Enter),
+        0x3B => Some(Key::Recall),
         0x39 => Some(Key::Char(b' ')),
         code => decode_ascii(code).map(Key::Char),
+    }
+}
+
+fn remember_input() {
+    unsafe {
+        if INPUT_LEN == 0 {
+            return;
+        }
+        LAST_INPUT_LEN = INPUT_LEN;
+        let mut i = 0;
+        while i < INPUT_CAPACITY {
+            LAST_INPUT[i] = if i < INPUT_LEN { INPUT[i] } else { 0 };
+            i += 1;
+        }
+    }
+}
+
+fn recall_last_input() {
+    unsafe {
+        INPUT_LEN = LAST_INPUT_LEN;
+        let mut i = 0;
+        while i < INPUT_CAPACITY {
+            INPUT[i] = LAST_INPUT[i];
+            i += 1;
+        }
+        serial::write_str("[recall]\r\n");
     }
 }
 
@@ -213,17 +258,6 @@ fn shifted_ascii(byte: u8) -> u8 {
         b'/' => b'?',
         _ => byte,
     }
-}
-
-fn copy_bytes(dst: &mut [u8], mut idx: usize, src: &[u8]) -> usize {
-    for byte in src {
-        if idx >= dst.len() {
-            break;
-        }
-        dst[idx] = *byte;
-        idx += 1;
-    }
-    idx
 }
 
 fn as_str(bytes: &[u8]) -> &str {

@@ -17,6 +17,7 @@ mod shell;
 mod syscall;
 mod task;
 mod trace;
+mod ui;
 mod user;
 mod vga;
 
@@ -24,13 +25,7 @@ mod vga;
 #[unsafe(link_section = ".text.boot")]
 pub extern "C" fn _start() -> ! {
     serial::init();
-    vga::clear_screen();
-    let title = vga::make_color(vga::Color::LightCyan, vga::Color::Black);
-    let normal = vga::make_color(vga::Color::LightGray, vga::Color::Black);
-    let ok = vga::make_color(vga::Color::LightGreen, vga::Color::Black);
-
-    vga::write_line(0, "Nagi OS", title);
-    vga::write_line(1, "A Rust-based observable teaching operating system", normal);
+    ui::draw_desktop();
 
     klog::init();
     trace::init();
@@ -53,16 +48,14 @@ pub extern "C" fn _start() -> ! {
     klog::record(klog::EventType::Trace, 4, 100, "pit-ready");
     klog::record(klog::EventType::Trace, 5, 0, "kbd-ready");
 
-    vga::write_line(3, "kernel: long mode is active", ok);
-    vga::write_line(4, "kernel: VGA text console online", ok);
-    vga::write_line(5, "kernel: serial console online", ok);
-    vga::write_line(6, "kernel: event log initialized", ok);
-    vga::write_line(7, "kernel: IDT exception gates loaded", ok);
-    vga::write_line(8, "kernel: PIC remapped and PIT 100Hz enabled", ok);
-    vga::write_line(9, "kernel: keyboard IRQ1 enabled", ok);
-    vga::write_line(10, "kernel: physical page allocator ready", ok);
-    vga::write_line(11, "kernel: observable round-robin task model ready", ok);
-    vga::write_line(12, "kernel: RAMFS, syscall, and user demos ready", ok);
+    ui::draw_boot_line(0, "long mode", "64-bit kernel entry is active");
+    ui::draw_boot_line(1, "console", "VGA text and serial output online");
+    ui::draw_boot_line(2, "events", "klog and trace buffers initialized");
+    ui::draw_boot_line(3, "interrupts", "IDT, PIC, PIT 100Hz, keyboard IRQ1 ready");
+    ui::draw_boot_line(4, "memory", "observable physical page allocator ready");
+    ui::draw_boot_line(5, "tasks", "round-robin task model ready");
+    ui::draw_boot_line(6, "services", "RAMFS, syscall, and user demos ready");
+    ui::draw_footer("booted");
     keyboard::init_screen();
     shell::init();
 

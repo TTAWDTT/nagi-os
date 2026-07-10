@@ -86,6 +86,26 @@ pub fn write_line(row: usize, text: &str, color: u8) {
     }
 }
 
+pub fn write_at(row: usize, col: usize, text: &str, color: u8) {
+    if row >= HEIGHT || col >= WIDTH {
+        return;
+    }
+    for (offset, byte) in text.bytes().take(WIDTH - col).enumerate() {
+        write_cell(row, col + offset, byte, color);
+    }
+}
+
+pub fn fill_row(row: usize, byte: u8, color: u8) {
+    if row >= HEIGHT {
+        return;
+    }
+    let mut col = 0;
+    while col < WIDTH {
+        write_cell(row, col, byte, color);
+        col += 1;
+    }
+}
+
 pub fn make_color(fg: Color, bg: Color) -> u8 {
     color_code(fg, bg)
 }
