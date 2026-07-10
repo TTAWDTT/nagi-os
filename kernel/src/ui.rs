@@ -71,20 +71,48 @@ pub fn draw_footer(status: &str) {
     vga::write_at(FOOTER_ROW, 62, "Enter runs command", color);
 }
 
-pub fn draw_prompt(input: &str, full: bool) {
+pub fn draw_prompt(input: &str, suggestion: Option<&str>, full: bool) {
     let base = vga::make_color(vga::Color::LightGray, vga::Color::Black);
     let prompt = vga::make_color(vga::Color::Black, vga::Color::LightCyan);
+    let ghost = vga::make_color(vga::Color::DarkGray, vga::Color::Black);
     let warn = vga::make_color(vga::Color::Yellow, vga::Color::Black);
     vga::write_line(PROMPT_ROW, "", base);
     vga::write_at(PROMPT_ROW, 1, "nagi>", prompt);
     vga::write_at(PROMPT_ROW, 8, input, base);
     let cursor_col = 8 + input.len();
-    if cursor_col < 78 {
-        vga::write_at(PROMPT_ROW, cursor_col, "_", prompt);
+
+    if let Some(candidate) = suggestion {
+        if starts_with(candidate, input) && candidate.len() > input.len() {
+            vga::write_at(PROMPT_ROW, cursor_col, &candidate[input.len()..], ghost);
+            if cursor_col + candidate.len() - input.len() + 12 < 80 {
+                vga::write_at(PROMPT_ROW, cursor_col + candidate.len() - input.len() + 2, "-> accept", ghost);
+            }
+        }
     }
+
+    if cursor_col < 80 {
+        vga::set_cursor(PROMPT_ROW, cursor_col);
+    }
+
     if full {
         vga::write_at(PROMPT_ROW, 70, "full", warn);
     }
+}
+
+fn starts_with(text: &str, prefix: &str) -> bool {
+    let text = text.as_bytes();
+    let prefix = prefix.as_bytes();
+    if prefix.len() > text.len() {
+        return false;
+    }
+    let mut i = 0;
+    while i < prefix.len() {
+        if text[i] != prefix[i] {
+            return false;
+        }
+        i += 1;
+    }
+    true
 }
 
 fn write_u64_at(row: usize, col: usize, value: u64, color: u8) {

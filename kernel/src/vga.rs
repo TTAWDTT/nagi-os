@@ -106,6 +106,17 @@ pub fn fill_row(row: usize, byte: u8, color: u8) {
     }
 }
 
+pub fn set_cursor(row: usize, col: usize) {
+    if row >= HEIGHT || col >= WIDTH {
+        return;
+    }
+    let position = (row * WIDTH + col) as u16;
+    unsafe {
+        set_crtc_register(0x0E, (position >> 8) as u8);
+        set_crtc_register(0x0F, (position & 0xFF) as u8);
+    }
+}
+
 pub fn make_color(fg: Color, bg: Color) -> u8 {
     color_code(fg, bg)
 }

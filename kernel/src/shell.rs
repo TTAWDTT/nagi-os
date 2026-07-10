@@ -4,12 +4,96 @@ use crate::{fs, keyboard, klog, mem, pit, serial, syscall, task, trace, ui, user
 
 const OUTPUT_START_ROW: usize = ui::OUTPUT_START_ROW;
 const OUTPUT_ROWS: usize = ui::OUTPUT_ROWS;
+const COMMANDS: [&str; 65] = [
+    "help",
+    "help obs",
+    "help fs",
+    "help demo",
+    "?",
+    "status",
+    "sysstat",
+    "ticks",
+    "viz",
+    "mem",
+    "ps",
+    "sched",
+    "syscall",
+    "syscall write",
+    "syscall time",
+    "syscall trace",
+    "syscall stats",
+    "run",
+    "run hello",
+    "run time",
+    "run trace",
+    "run files",
+    "programs",
+    "files",
+    "ls",
+    "cat readme",
+    "cat note",
+    "cat demo",
+    "cat userlog",
+    "echo hello > note",
+    "rm note",
+    "trace",
+    "trace irq",
+    "trace sched",
+    "trace mem",
+    "trace syscall",
+    "trace file",
+    "trace demo",
+    "trace on",
+    "trace off",
+    "trace status",
+    "timeline",
+    "explain",
+    "explain irq",
+    "explain sched",
+    "explain mem",
+    "explain syscall",
+    "tour",
+    "tour next",
+    "tour boot",
+    "tour mem",
+    "tour sched",
+    "tour syscall",
+    "tour fs",
+    "tour observe",
+    "tour demo",
+    "guide",
+    "demo",
+    "demo sched",
+    "demo fs",
+    "demo syscall",
+    "demo trace",
+    "bench trace",
+    "clear",
+    "cls",
+];
 static TOUR_STEP: AtomicUsize = AtomicUsize::new(0);
 
 pub fn init() {
     clear_output();
     write_output(0, "type 'help' and press Enter");
     write_output(1, "try: tour, viz, run, bench trace");
+}
+
+pub fn complete(input: &str) -> Option<&'static str> {
+    let prefix = trim(input);
+    if prefix.is_empty() {
+        return None;
+    }
+
+    let mut i = 0;
+    while i < COMMANDS.len() {
+        let command = COMMANDS[i];
+        if command != prefix && starts_with(command, prefix) {
+            return Some(command);
+        }
+        i += 1;
+    }
+    None
 }
 
 pub fn run(command: &str) {
@@ -700,6 +784,22 @@ fn trim(text: &str) -> &str {
     }
 
     unsafe { core::str::from_utf8_unchecked(&bytes[start..end]) }
+}
+
+fn starts_with(text: &str, prefix: &str) -> bool {
+    let text = text.as_bytes();
+    let prefix = prefix.as_bytes();
+    if prefix.len() > text.len() {
+        return false;
+    }
+    let mut i = 0;
+    while i < prefix.len() {
+        if text[i] != prefix[i] {
+            return false;
+        }
+        i += 1;
+    }
+    true
 }
 
 fn command_arg<'a>(command: &'a str, name: &str) -> Option<&'a str> {

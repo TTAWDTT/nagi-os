@@ -75,6 +75,8 @@ enum Key {
     Backspace,
     Enter,
     Recall,
+    Complete,
+    Clear,
 }
 
 fn handle_key(key: Key) {
@@ -117,6 +119,14 @@ fn handle_key(key: Key) {
                 recall_last_input();
                 trace::record(trace::TraceKind::Keyboard, LAST_INPUT_LEN as u64, "recall");
             }
+            Key::Complete => {
+                complete_input();
+                trace::record(trace::TraceKind::Keyboard, INPUT_LEN as u64, "complete");
+            }
+            Key::Clear => {
+                clear_input();
+                trace::record(trace::TraceKind::Keyboard, 0, "clear-input");
+            }
         }
     }
 
@@ -125,7 +135,8 @@ fn handle_key(key: Key) {
 
 fn redraw() {
     unsafe {
-        ui::draw_prompt(as_str(&INPUT[..INPUT_LEN]), INPUT_LEN >= INPUT_CAPACITY);
+        let input = as_str(&INPUT[..INPUT_LEN]);
+        ui::draw_prompt(input, shell::complete(input), INPUT_LEN >= INPUT_CAPACITY);
     }
 }
 
@@ -133,12 +144,15 @@ fn decode_scancode(scancode: u8, extended: bool) -> Option<Key> {
     if extended {
         return match scancode {
             0x48 => Some(Key::Recall),
+            0x4D => Some(Key::Complete),
             _ => None,
         };
     }
 
     match scancode {
+        0x01 => Some(Key::Clear),
         0x0E => Some(Key::Backspace),
+        0x0F => Some(Key::Complete),
         0x1C => Some(Key::Enter),
         0x3B => Some(Key::Recall),
         0x39 => Some(Key::Char(b' ')),
@@ -169,6 +183,41 @@ fn recall_last_input() {
             i += 1;
         }
         serial::write_str("[recall]\r\n");
+    }
+}
+
+fn complete_input() {
+    unsafe {
+        let input = as_str(&INPUT[..INPUT_LEN]);
+        if let Some(candidate) = shell::complete(input) {
+            let bytes = candidate.as_bytes();
+            INPUT_LEN = 0;
+            let mut i = 0;
+            while i < bytes.len() && i < INPUT_CAPACITY {
+                INPUT[i] = bytes[i];
+                INPUT_LEN += 1;
+                i += 1;
+            }
+            while i < INPUT_CAPACITY {
+                INPUT[i] = 0;
+                i += 1;
+            }
+            serial::write_str("[complete] ");
+            serial::write_str(candidate);
+            serial::write_str("\r\n");
+        }
+    }
+}
+
+fn clear_input() {
+    unsafe {
+        INPUT_LEN = 0;
+        let mut i = 0;
+        while i < INPUT_CAPACITY {
+            INPUT[i] = 0;
+            i += 1;
+        }
+        serial::write_str("[clear]\r\n");
     }
 }
 
