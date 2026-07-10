@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.png" alt="Nagi OS logo" width="150" height="150" />
+  <img src="logo.png" alt="Nagi OS logo" width="200" height="200" />
 </p>
 
 # Nagi OS
