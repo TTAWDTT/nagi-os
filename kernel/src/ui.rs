@@ -92,7 +92,7 @@ pub fn draw_prompt(input: &str, suggestion: Option<&str>, cursor: usize, full: b
 
     if let Some(candidate) = suggestion {
         if cursor == input.len() && starts_with(candidate, input) && candidate.len() > input.len() {
-            vga::write_at(PROMPT_ROW, cursor_col, &candidate[input.len()..], ghost);
+            write_ghost(PROMPT_ROW, cursor_col, &candidate[input.len()..], ghost);
         }
     }
 
@@ -103,6 +103,22 @@ pub fn draw_prompt(input: &str, suggestion: Option<&str>, cursor: usize, full: b
     if full {
         vga::write_at(PROMPT_ROW, 70, "full", warn);
     }
+}
+
+fn write_ghost(row: usize, col: usize, text: &str, color: u8) {
+    let bytes = text.as_bytes();
+    let mut out = [0u8; 13];
+    let mut len = 0;
+    while len < bytes.len() && len < 10 {
+        out[len] = bytes[len];
+        len += 1;
+    }
+    if bytes.len() > len && len + 2 < out.len() {
+        out[len] = b'.';
+        out[len + 1] = b'.';
+        len += 2;
+    }
+    vga::write_at(row, col, as_str(&out[..len]), color);
 }
 
 fn starts_with(text: &str, prefix: &str) -> bool {
