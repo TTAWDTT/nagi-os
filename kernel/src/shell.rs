@@ -4,7 +4,20 @@ use crate::{fs, keyboard, klog, mem, pit, serial, syscall, task, trace, ui, user
 
 const OUTPUT_START_ROW: usize = ui::OUTPUT_START_ROW;
 const OUTPUT_ROWS: usize = ui::OUTPUT_ROWS;
-const COMMANDS: [&str; 65] = [
+const COMMANDS: &[&str] = &[
+    "h",
+    "s",
+    "v",
+    "m",
+    "p",
+    "f",
+    "t",
+    "g",
+    "n",
+    "r",
+    "d",
+    "b",
+    "q",
     "help",
     "help obs",
     "help fs",
@@ -75,8 +88,9 @@ static TOUR_STEP: AtomicUsize = AtomicUsize::new(0);
 
 pub fn init() {
     clear_output();
-    write_output(0, "type 'help' and press Enter");
-    write_output(1, "try: tour, viz, run, bench trace");
+    write_output(0, "h help      s status     v overview");
+    write_output(2, "g guide     r programs   f files");
+    write_output(4, "Type a letter. Tab or Right accepts the hint.");
 }
 
 pub fn complete(input: &str) -> Option<&'static str> {
@@ -162,13 +176,13 @@ pub fn run(command: &str) {
 
     match command {
         "" => {}
-        "help" | "?" => show_help(),
+        "help" | "?" | "h" => show_help(),
         "ticks" => show_ticks(),
-        "sysstat" | "status" => show_sysstat(),
-        "mem" => show_mem(),
-        "viz" => show_viz(),
-        "ls" | "files" => show_ls(),
-        "ps" => show_ps(),
+        "sysstat" | "status" | "s" => show_sysstat(),
+        "mem" | "m" => show_mem(),
+        "viz" | "v" => show_viz(),
+        "ls" | "files" | "f" => show_ls(),
+        "ps" | "p" => show_ps(),
         "sched" => show_sched(),
         "syscall" => show_syscall("demo"),
         "syscall write" => show_syscall("write"),
@@ -178,12 +192,14 @@ pub fn run(command: &str) {
         "klog" => show_klog(),
         "trace" => show_trace(),
         "bench" => show_bench("overview"),
-        "run" | "programs" => show_run("overview"),
-        "timeline" => show_timeline(),
+        "bench trace" | "b" => show_bench("trace"),
+        "run" | "programs" | "r" => show_run("overview"),
+        "timeline" | "t" => show_timeline(),
         "explain" => show_explain("overview"),
-        "tour" | "guide" => show_tour("overview"),
-        "demo" => show_demo("overview"),
-        "clear" | "cls" => {
+        "tour" | "guide" | "g" => show_tour("overview"),
+        "tour next" | "n" => show_tour("next"),
+        "demo" | "d" => show_demo("overview"),
+        "clear" | "cls" | "q" => {
             clear_output();
         }
         _ => show_unknown(command),
@@ -192,14 +208,12 @@ pub fn run(command: &str) {
 
 fn show_help() {
     clear_output();
-    write_output(0, "command guide:");
-    write_output(1, "  status     viz        timeline");
-    write_output(2, "  mem        ps         sched");
-    write_output(3, "  syscall    run        programs");
-    write_output(4, "  files      cat readme echo hi > note");
-    write_output(5, "  trace      trace irq  trace status");
-    write_output(6, "  tour       tour next  demo");
-    write_output(7, "  bench trace           clear/cls");
+    write_output(0, "quick keys");
+    write_output(2, "h help      s status    v overview");
+    write_output(3, "m memory    p tasks     f files");
+    write_output(4, "t timeline  g guide     n next");
+    write_output(5, "r programs  b bench     d demos");
+    write_output(6, "q clear");
     write_output(8, "more: help obs, help fs, help demo");
 }
 
@@ -576,15 +590,14 @@ fn show_mem() {
 fn show_viz() {
     clear_output();
     let memory = mem::stats();
-    write_output(0, "observable kernel dashboard:");
-    write_bar(1, "mem", memory.used_pages as u64, memory.total_pages as u64);
-    write_bar(2, "trace", trace::len() as u64, trace::capacity() as u64);
-    write_bar(3, "klog", klog::len() as u64, klog::capacity() as u64);
-    write_bar(4, "irq", keyboard::irq_count(), 32);
-    write_bar(5, "sched", task::switches() as u64, 32);
-    write_stat_line(6, "pit ticks", pit::ticks());
-    write_stat_line(7, "syscall calls", syscall::calls());
-    write_stat_line(8, "ramfs files", fs::count() as u64);
+    write_output(0, "overview");
+    write_stat_pair(2, "memory pages", memory.used_pages as u64, memory.total_pages as u64);
+    write_stat_pair(3, "trace events", trace::len() as u64, trace::capacity() as u64);
+    write_stat_pair(4, "tasks / switches", task::count() as u64, task::switches() as u64);
+    write_stat_pair(5, "files / syscalls", fs::count() as u64, syscall::calls());
+    write_stat_line(6, "keyboard irq", keyboard::irq_count());
+    write_stat_line(7, "pit ticks", pit::ticks());
+    write_output(8, "next: m memory, p tasks, t timeline");
 }
 
 fn show_run(name: &str) {
@@ -731,7 +744,7 @@ fn write_memory_bar(offset: usize) {
     let stats = mem::stats();
     let mut line = [0u8; 80];
     let mut len = copy_bytes(&mut line, 0, b"pages: [");
-    let cells = 32usize;
+    let cells = 16usize;
     let mut i = 0;
     while i < cells {
         let page = i * stats.total_pages / cells;
@@ -740,26 +753,6 @@ fn write_memory_bar(offset: usize) {
         i += 1;
     }
     len = copy_bytes(&mut line, len, b"]");
-    write_output(offset, as_str(&line[..len]));
-}
-
-fn write_bar(offset: usize, label: &str, value: u64, max: u64) {
-    let mut line = [0u8; 80];
-    let mut len = copy_bytes(&mut line, 0, label.as_bytes());
-    len = copy_bytes(&mut line, len, b": [");
-    let cells = 24u64;
-    let capped = if value > max { max } else { value };
-    let filled = if max == 0 { 0 } else { capped * cells / max };
-    let mut i = 0;
-    while i < cells {
-        let byte = if i < filled { b'#' } else { b'.' };
-        len = copy_byte(&mut line, len, byte);
-        i += 1;
-    }
-    len = copy_bytes(&mut line, len, b"] ");
-    len = append_u64(&mut line, len, value);
-    len = copy_bytes(&mut line, len, b"/");
-    len = append_u64(&mut line, len, max);
     write_output(offset, as_str(&line[..len]));
 }
 

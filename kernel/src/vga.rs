@@ -95,17 +95,6 @@ pub fn write_at(row: usize, col: usize, text: &str, color: u8) {
     }
 }
 
-pub fn fill_row(row: usize, byte: u8, color: u8) {
-    if row >= HEIGHT {
-        return;
-    }
-    let mut col = 0;
-    while col < WIDTH {
-        write_cell(row, col, byte, color);
-        col += 1;
-    }
-}
-
 pub fn set_cursor(row: usize, col: usize) {
     if row >= HEIGHT || col >= WIDTH {
         return;

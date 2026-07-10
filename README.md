@@ -40,7 +40,7 @@
 - `tour` 课程答辩导览
 - `bench trace` 可观测性开销演示
 - `demo` 一键式课程答辩演示入口
-- 顶部标题栏、底部状态栏、输出区标题、输入光标
+- 轻量顶部提示、底部状态、输出区标题、输入光标
 - F1 / 上方向键召回上一条命令
 - 命令预测 ghost text，右方向键 / Tab 接受补全
 - Esc 清空当前输入
@@ -77,15 +77,20 @@
 ```text
 help              查看命令列表
 ?                 help 的简写
+h                 help 的一键入口
 help obs          查看可观测性命令
 help fs           查看 RAMFS 命令
 help demo         查看答辩演示命令
 ticks             查看 PIT tick
 sysstat           查看系统状态
 status            sysstat 的简写
+s                 status 的一键入口
 mem               查看物理页分配器
+m                 mem 的一键入口
 viz               查看 ASCII 状态面板
+v                 viz 的一键入口
 ps                查看内核任务表
+p                 ps 的一键入口
 sched             查看调度状态
 syscall           运行系统调用演示
 klog              查看内核日志
@@ -108,20 +113,27 @@ run hello         运行 hello 用户程序
 run time          运行 time 用户程序
 run trace         运行 trace 用户程序
 run files         运行 RAMFS 用户程序
+r                 run 的一键入口
 ls                列出 RAMFS 文件
 files             ls 的简写
+f                 files 的一键入口
 cat readme        读取 RAMFS 文件
 echo hello > note 写入 note 文件
 rm note           删除 RAMFS 文件
 tour              查看答辩导览主题
 guide             tour 的简写
+g                 guide 的一键入口
 tour next         翻到下一页导览
+n                 tour next 的一键入口
 bench trace       演示 trace on/off 的记录差异
+b                 bench trace 的一键入口
 demo              查看演示主题
+d                 demo 的一键入口
 demo sched        触发/说明调度演示
 demo fs           创建演示文件
 demo syscall      触发系统调用演示
 clear / cls       清空输出区
+q                 clear 的一键入口
 ```
 
 输入区支持简单补全：输入 `r` 会预测 `run`，输入 `trace s` 会预测
