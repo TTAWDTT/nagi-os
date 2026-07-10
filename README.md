@@ -36,6 +36,9 @@
 - `explain` 教学解释页
 - `viz` ASCII 内核状态可视化面板
 - `ls` / `cat` / `echo` / `rm` RAMFS 内存文件系统
+- `run` 用户程序演示模型
+- `tour` 课程答辩导览
+- `bench trace` 可观测性开销演示
 - `demo` 一键式课程答辩演示入口
 - 早期内核事件日志 (`klog`) 骨架
 
@@ -58,6 +61,9 @@
   - `timeline`
   - `explain`
   - `viz`
+  - `run`
+  - `tour`
+  - `bench`
   - `demo`
 
 ## Shell 命令速查
@@ -80,15 +86,26 @@ trace sched       过滤调度事件
 trace mem         过滤内存事件
 trace syscall     过滤系统调用事件
 trace file        过滤文件系统事件
+trace on          开启 trace 记录
+trace off         关闭 trace 记录
+trace status      查看 trace 开关与 skipped 计数
 timeline          查看统一事件时间线
 explain irq       解释中断路径
 explain sched     解释调度模型
 explain mem       解释内存模型
 explain syscall   解释系统调用模型
+run               查看用户程序
+run hello         运行 hello 用户程序
+run time          运行 time 用户程序
+run trace         运行 trace 用户程序
+run files         运行 RAMFS 用户程序
 ls                列出 RAMFS 文件
 cat readme        读取 RAMFS 文件
 echo hello > note 写入 note 文件
 rm note           删除 RAMFS 文件
+tour              查看答辩导览主题
+tour next         翻到下一页导览
+bench trace       演示 trace on/off 的记录差异
 demo              查看演示主题
 demo sched        触发/说明调度演示
 demo fs           创建演示文件

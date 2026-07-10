@@ -18,11 +18,13 @@ be inspectable from inside the OS.
 - IDT, PIC, PIT, and timer interrupt
 - Observable task table and round-robin scheduler model
 - System call demo layer
+- User program demo model backed by syscalls
 - Shell and user commands
 - RAMFS single-directory file system
 - Kernel event log
 - Filtered kernel tracing and timeline view
 - Guided demo commands
+- Presentation tour and trace overhead benchmark
 
 ## Innovation
 
@@ -30,10 +32,14 @@ The main innovation is an observability layer:
 
 - `klog`: inspect recent kernel events
 - `trace`: filter boot/irq/mem/scheduler/syscall/file/demo events
+- `trace on/off/status`: show how observability can be controlled
 - `timeline`: inspect kernel activity as a chronological story
 - `ps`: inspect the task table
 - `sysstat`: inspect syscall counts and scheduler statistics
 - `viz`: show an ASCII dashboard for memory, logs, IRQs, and scheduling
+- `run`: launch small user-program demos through the syscall layer
+- `tour`: guide a presentation through boot, memory, scheduling, syscalls, and RAMFS
+- `bench trace`: demonstrate recorded vs skipped trace events
 - `explain`: turn kernel mechanisms into in-OS teaching notes
 - `demo`: trigger guided demonstrations for presentation and grading
 
