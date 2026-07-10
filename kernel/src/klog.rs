@@ -1,4 +1,4 @@
-use crate::console;
+use crate::{console, vga};
 
 const LOG_CAPACITY: usize = 32;
 
@@ -107,10 +107,61 @@ pub fn dump_to_console() {
     }
 }
 
+pub fn dump_to_vga(start_row: usize, max_rows: usize) {
+    unsafe {
+        let color = vga::make_color(vga::Color::LightGray, vga::Color::Black);
+        let start = if KLOG.len == LOG_CAPACITY { KLOG.next } else { 0 };
+        let mut i = 0;
+        while i < KLOG.len && i < max_rows {
+            let idx = (start + i) % LOG_CAPACITY;
+            let event = KLOG.events[idx];
+            let mut line = [0u8; 80];
+            let mut len = copy_bytes_slice(&mut line, 0, b"  ");
+            len = append_u64(&mut line, len, event.tick);
+            len = copy_bytes_slice(&mut line, len, b" ");
+            len = copy_bytes_slice(&mut line, len, event.kind.as_str().as_bytes());
+            len = copy_bytes_slice(&mut line, len, b" ");
+            len = copy_bytes_slice(&mut line, len, name_as_str(&event.name).as_bytes());
+            len = copy_bytes_slice(&mut line, len, b" a0=");
+            len = append_u64(&mut line, len, event.arg0);
+            len = copy_bytes_slice(&mut line, len, b" a1=");
+            len = append_u64(&mut line, len, event.arg1);
+            vga::write_line(start_row + i, as_str(&line[..len]), color);
+            i += 1;
+        }
+    }
+}
+
 fn copy_name(dst: &mut [u8; 16], name: &str) {
     for (i, byte) in name.bytes().take(dst.len() - 1).enumerate() {
         dst[i] = byte;
     }
+}
+
+fn copy_bytes_slice(dst: &mut [u8], mut idx: usize, src: &[u8]) -> usize {
+    for byte in src {
+        if idx >= dst.len() {
+            break;
+        }
+        dst[idx] = *byte;
+        idx += 1;
+    }
+    idx
+}
+
+fn append_u64(buf: &mut [u8], idx: usize, mut value: u64) -> usize {
+    if value == 0 {
+        return copy_bytes_slice(buf, idx, b"0");
+    }
+
+    let mut digits = [0u8; 20];
+    let mut digit_idx = digits.len();
+    while value > 0 {
+        digit_idx -= 1;
+        digits[digit_idx] = b'0' + (value % 10) as u8;
+        value /= 10;
+    }
+    copy_bytes_slice(buf, idx, &digits[digit_idx..])
 }
 
 fn name_as_str(bytes: &[u8; 16]) -> &str {
@@ -119,4 +170,8 @@ fn name_as_str(bytes: &[u8; 16]) -> &str {
         len += 1;
     }
     core::str::from_utf8(&bytes[..len]).unwrap_or("?")
+}
+
+fn as_str(bytes: &[u8]) -> &str {
+    unsafe { core::str::from_utf8_unchecked(bytes) }
 }

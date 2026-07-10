@@ -11,6 +11,7 @@ mod pic;
 mod pit;
 mod port;
 mod serial;
+mod shell;
 mod vga;
 
 #[unsafe(no_mangle)]
@@ -49,6 +50,7 @@ pub extern "C" fn _start() -> ! {
     vga::write_line(11, "early klog: 6 events recorded", normal);
     vga::write_line(12, "status: ready for shell and scheduler", normal);
     keyboard::init_screen();
+    shell::init();
 
     serial::write_str("Nagi OS booted\r\n");
 

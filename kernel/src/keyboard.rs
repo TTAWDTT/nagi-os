@@ -1,4 +1,4 @@
-use crate::{port, serial, vga};
+use crate::{port, serial, shell, vga};
 
 const KEYBOARD_DATA_PORT: u16 = 0x60;
 const INPUT_ROW: usize = 13;
@@ -62,6 +62,7 @@ fn handle_key(key: Key) {
             }
             Key::Enter => {
                 serial::write_str("\r\n");
+                shell::run(as_str(&INPUT[..INPUT_LEN]));
                 INPUT_LEN = 0;
                 let mut i = 0;
                 while i < INPUT_CAPACITY {
@@ -78,7 +79,7 @@ fn handle_key(key: Key) {
 fn redraw() {
     let color = vga::make_color(vga::Color::LightCyan, vga::Color::Black);
     let mut line = [b' '; 80];
-    let mut idx = copy_bytes(&mut line, 0, b"keyboard> ");
+    let mut idx = copy_bytes(&mut line, 0, b"nagi> ");
 
     unsafe {
         let mut i = 0;
