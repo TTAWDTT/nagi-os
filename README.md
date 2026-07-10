@@ -37,43 +37,23 @@ For the operating system course design, Nagi OS aims to include:
 
 ## Build on Windows + WSL
 
-Required tools:
-
-- Rust with `x86_64-unknown-none`
-- WSL Ubuntu
-- NASM inside WSL
-- QEMU inside WSL
-
-Install the Rust target:
+One-command setup:
 
 ```powershell
-rustup target add x86_64-unknown-none
+Set-ExecutionPolicy -Scope Process Bypass -Force; .\scripts\setup.ps1
 ```
 
-Install WSL tools:
-
-```bash
-sudo apt-get update
-sudo apt-get install -y nasm qemu-system-x86
-```
-
-Build:
+Verify:
 
 ```powershell
 .\scripts\build.ps1
-```
-
-Run:
-
-```powershell
+.\scripts\smoke.ps1
 .\scripts\run.ps1
 ```
 
-Smoke test:
-
-```powershell
-.\scripts\smoke.ps1
-```
+The setup script expects WSL Ubuntu to be available. If WSL is not installed
+yet, run `wsl --install -d Ubuntu` first, then reopen PowerShell and rerun the
+setup command.
 
 ## Build on Linux
 
@@ -93,4 +73,3 @@ on kernel observability.
 The planned innovation is to expose internal kernel behavior through commands
 and logs so that scheduling, system calls, and file operations can be observed
 from inside the OS.
-
