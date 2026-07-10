@@ -107,18 +107,25 @@ pub fn draw_prompt(input: &str, suggestion: Option<&str>, cursor: usize, full: b
 
 fn write_ghost(row: usize, col: usize, text: &str, color: u8) {
     let bytes = text.as_bytes();
-    let mut out = [0u8; 13];
-    let mut len = 0;
-    while len < bytes.len() && len < 10 {
-        out[len] = bytes[len];
-        len += 1;
+    let blank = vga::make_color(vga::Color::Black, vga::Color::Black);
+    let mut i = 0;
+    while i < bytes.len() && i < 10 {
+        let mut cell = [b' '];
+        let cell_color = if i % 2 == 0 {
+            cell[0] = bytes[i];
+            color
+        } else {
+            blank
+        };
+        vga::write_at(row, col + i, as_str(&cell), cell_color);
+        i += 1;
     }
-    if bytes.len() > len && len + 2 < out.len() {
-        out[len] = b'.';
-        out[len + 1] = b'.';
-        len += 2;
+    if bytes.len() > i {
+        vga::write_at(row, col + i, ".", color);
+        if i + 1 < 12 {
+            vga::write_at(row, col + i + 1, ".", color);
+        }
     }
-    vga::write_at(row, col, as_str(&out[..len]), color);
 }
 
 fn starts_with(text: &str, prefix: &str) -> bool {
