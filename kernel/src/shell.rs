@@ -1,7 +1,10 @@
+use core::sync::atomic::{AtomicUsize, Ordering};
+
 use crate::{fs, keyboard, klog, mem, pit, serial, syscall, task, trace, vga};
 
 const OUTPUT_START_ROW: usize = 15;
 const OUTPUT_ROWS: usize = 9;
+static TOUR_STEP: AtomicUsize = AtomicUsize::new(0);
 
 pub fn init() {
     clear_output();
@@ -21,6 +24,10 @@ pub fn run(command: &str) {
     }
     if let Some(topic) = command_arg(command, "explain") {
         show_explain(topic);
+        return;
+    }
+    if let Some(topic) = command_arg(command, "tour") {
+        show_tour(topic);
         return;
     }
     if let Some(topic) = command_arg(command, "demo") {
@@ -59,6 +66,7 @@ pub fn run(command: &str) {
         "trace" => show_trace(),
         "timeline" => show_timeline(),
         "explain" => show_explain("overview"),
+        "tour" => show_tour("overview"),
         "demo" => show_demo("overview"),
         "clear" => {
             clear_output();
@@ -77,7 +85,7 @@ fn show_help() {
     write_output(5, "  viz    - visual kernel dashboard");
     write_output(6, "  ps sched - task and scheduler state");
     write_output(7, "  ls cat echo rm");
-    write_output(8, "  syscall timeline explain demo");
+    write_output(8, "  syscall timeline explain tour demo");
 }
 
 fn show_ticks() {
@@ -170,6 +178,95 @@ fn show_explain(topic: &str) {
             write_output(4, "  explain syscall");
             write_output(5, "goal: make kernel internals teachable");
         }
+    }
+}
+
+fn show_tour(topic: &str) {
+    let topic = if topic == "next" {
+        let step = (TOUR_STEP.fetch_add(1, Ordering::Relaxed) + 1) % 7;
+        tour_topic(step)
+    } else {
+        topic
+    };
+
+    clear_output();
+    trace::record(trace::TraceKind::Demo, topic.len() as u64, "tour");
+    match topic {
+        "boot" => {
+            TOUR_STEP.store(0, Ordering::Relaxed);
+            write_output(0, "tour 1/7: boot path");
+            write_output(1, "stage1 loads stage2 from the disk image");
+            write_output(2, "stage2 enters protected mode and long mode");
+            write_output(3, "Rust no_std kernel starts at 0x10000");
+            write_output(4, "observe: klog, trace boot, explain irq");
+        }
+        "mem" | "memory" => {
+            TOUR_STEP.store(1, Ordering::Relaxed);
+            write_output(0, "tour 2/7: memory");
+            write_output(1, "4 KiB pages form a visible physical pool");
+            write_output(2, "kernel/task/RAMFS allocations consume pages");
+            write_output(3, "observe: mem, viz, trace mem");
+        }
+        "sched" | "scheduler" => {
+            TOUR_STEP.store(2, Ordering::Relaxed);
+            write_output(0, "tour 3/7: scheduler");
+            write_output(1, "PIT ticks drive round-robin task rotation");
+            write_output(2, "task switches are recorded as events");
+            write_output(3, "observe: ps, sched, trace sched");
+        }
+        "syscall" | "sys" => {
+            TOUR_STEP.store(3, Ordering::Relaxed);
+            write_output(0, "tour 4/7: syscall");
+            write_output(1, "sys_write/sys_time/sys_trace/sys_stats");
+            write_output(2, "each syscall records trace and klog");
+            write_output(3, "observe: syscall, demo syscall");
+        }
+        "fs" | "file" => {
+            TOUR_STEP.store(4, Ordering::Relaxed);
+            write_output(0, "tour 5/7: RAMFS");
+            write_output(1, "single-directory memory filesystem");
+            write_output(2, "files occupy visible page-pool entries");
+            write_output(3, "observe: ls, cat readme, echo hi > note");
+        }
+        "observe" | "obs" => {
+            TOUR_STEP.store(5, Ordering::Relaxed);
+            write_output(0, "tour 6/7: observability");
+            write_output(1, "klog records kernel events");
+            write_output(2, "trace filters events by subsystem");
+            write_output(3, "timeline turns events into a story");
+            write_output(4, "observe: viz, timeline, trace irq");
+        }
+        "demo" => {
+            TOUR_STEP.store(6, Ordering::Relaxed);
+            write_output(0, "tour 7/7: presentation flow");
+            write_output(1, "run: viz -> mem -> ps -> syscall");
+            write_output(2, "run: ls -> demo fs -> timeline");
+            write_output(3, "close with: explain sched");
+            write_output(4, "use: tour next to cycle again");
+        }
+        _ => {
+            write_output(0, "tour topics:");
+            write_output(1, "  tour boot");
+            write_output(2, "  tour mem");
+            write_output(3, "  tour sched");
+            write_output(4, "  tour syscall");
+            write_output(5, "  tour fs");
+            write_output(6, "  tour observe");
+            write_output(7, "  tour demo");
+            write_output(8, "  tour next");
+        }
+    }
+}
+
+fn tour_topic(step: usize) -> &'static str {
+    match step {
+        0 => "boot",
+        1 => "mem",
+        2 => "sched",
+        3 => "syscall",
+        4 => "fs",
+        5 => "observe",
+        _ => "demo",
     }
 }
 
