@@ -2,7 +2,7 @@ use core::arch::{asm, global_asm};
 use core::cell::UnsafeCell;
 use core::mem::size_of;
 
-use crate::{serial, vga};
+use crate::{pic, pit, serial, vga};
 
 const IDT_LEN: usize = 256;
 const KERNEL_CODE_SELECTOR: u16 = 0x18;
@@ -266,6 +266,62 @@ isr31:
     xor rsi, rsi
     mov rdx, rsp
     call rust_exception_handler
+
+.macro irq_stub name vector
+.global \name
+\name:
+    cld
+    push rax
+    push rbx
+    push rcx
+    push rdx
+    push rbp
+    push rsi
+    push rdi
+    push r8
+    push r9
+    push r10
+    push r11
+    push r12
+    push r13
+    push r14
+    push r15
+    mov rdi, \vector
+    call rust_irq_handler
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rdi
+    pop rsi
+    pop rbp
+    pop rdx
+    pop rcx
+    pop rbx
+    pop rax
+    iretq
+.endm
+
+irq_stub irq0, 32
+irq_stub irq1, 33
+irq_stub irq2, 34
+irq_stub irq3, 35
+irq_stub irq4, 36
+irq_stub irq5, 37
+irq_stub irq6, 38
+irq_stub irq7, 39
+irq_stub irq8, 40
+irq_stub irq9, 41
+irq_stub irq10, 42
+irq_stub irq11, 43
+irq_stub irq12, 44
+irq_stub irq13, 45
+irq_stub irq14, 46
+irq_stub irq15, 47
 "#
 );
 
@@ -302,6 +358,22 @@ unsafe extern "C" {
     fn isr29();
     fn isr30();
     fn isr31();
+    fn irq0();
+    fn irq1();
+    fn irq2();
+    fn irq3();
+    fn irq4();
+    fn irq5();
+    fn irq6();
+    fn irq7();
+    fn irq8();
+    fn irq9();
+    fn irq10();
+    fn irq11();
+    fn irq12();
+    fn irq13();
+    fn irq14();
+    fn irq15();
 }
 
 #[derive(Clone, Copy)]
@@ -395,6 +467,22 @@ pub fn init() {
         idt[29].set_handler(isr29);
         idt[30].set_handler(isr30);
         idt[31].set_handler(isr31);
+        idt[32].set_handler(irq0);
+        idt[33].set_handler(irq1);
+        idt[34].set_handler(irq2);
+        idt[35].set_handler(irq3);
+        idt[36].set_handler(irq4);
+        idt[37].set_handler(irq5);
+        idt[38].set_handler(irq6);
+        idt[39].set_handler(irq7);
+        idt[40].set_handler(irq8);
+        idt[41].set_handler(irq9);
+        idt[42].set_handler(irq10);
+        idt[43].set_handler(irq11);
+        idt[44].set_handler(irq12);
+        idt[45].set_handler(irq13);
+        idt[46].set_handler(irq14);
+        idt[47].set_handler(irq15);
 
         let pointer = IdtPointer {
             limit: (size_of::<[IdtEntry; IDT_LEN]>() - 1) as u16,
@@ -402,6 +490,12 @@ pub fn init() {
         };
 
         asm!("lidt [{}]", in(reg) &pointer, options(readonly, nostack, preserves_flags));
+    }
+}
+
+pub fn enable_interrupts() {
+    unsafe {
+        asm!("sti", options(nomem, nostack, preserves_flags));
     }
 }
 
@@ -446,6 +540,18 @@ pub extern "C" fn rust_exception_handler(
             asm!("hlt", options(nomem, nostack, preserves_flags));
         }
     }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn rust_irq_handler(vector: u64) {
+    if vector == pic::PIC1_OFFSET as u64 {
+        let tick = pit::tick();
+        if tick == 1 {
+            serial::write_str("PIT timer interrupt online\r\n");
+        }
+    }
+
+    pic::end_of_interrupt(vector as u8);
 }
 
 fn exception_name(vector: u64) -> &'static str {

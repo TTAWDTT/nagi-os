@@ -6,6 +6,9 @@ use core::panic::PanicInfo;
 mod console;
 mod idt;
 mod klog;
+mod pic;
+mod pit;
+mod port;
 mod serial;
 mod vga;
 
@@ -26,14 +29,21 @@ pub extern "C" fn _start() -> ! {
     klog::record(klog::EventType::Trace, 1, 0, "trace-ready");
     idt::init();
     klog::record(klog::EventType::Trace, 2, 0, "idt-ready");
+    pic::init();
+    klog::record(klog::EventType::Trace, 3, 0, "pic-ready");
+    pit::init(100);
+    pic::enable_timer();
+    idt::enable_interrupts();
+    klog::record(klog::EventType::Trace, 4, 100, "pit-ready");
 
     vga::write_line(3, "kernel: long mode is active", ok);
     vga::write_line(4, "kernel: VGA text console online", ok);
     vga::write_line(5, "kernel: serial console online", ok);
     vga::write_line(6, "kernel: event log initialized", ok);
     vga::write_line(7, "kernel: IDT exception gates loaded", ok);
-    vga::write_line(9, "early klog: 3 events recorded", normal);
-    vga::write_line(10, "status: ready for interrupts, keyboard, shell, and scheduler", normal);
+    vga::write_line(8, "kernel: PIC remapped and PIT 100Hz enabled", ok);
+    vga::write_line(10, "early klog: 5 events recorded", normal);
+    vga::write_line(11, "status: ready for keyboard, shell, and scheduler", normal);
 
     serial::write_str("Nagi OS booted\r\n");
 

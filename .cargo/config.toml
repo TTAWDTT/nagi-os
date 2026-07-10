@@ -6,5 +6,5 @@ rustflags = [
   "-C", "link-arg=-Tkernel/linker.ld",
   "-C", "relocation-model=static",
   "-C", "force-frame-pointers=yes",
+  "-C", "no-redzone=yes",
 ]
-
