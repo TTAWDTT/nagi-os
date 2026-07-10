@@ -140,18 +140,21 @@ QEMU_STILL_RUNNING_AFTER_5S
 .\scripts\run.ps1
 ```
 
-启动后可以看到 Nagi OS 的 VGA 文本界面。
+启动后会在当前终端里看到 Nagi OS 的 VGA 文本界面。
 
-如果窗口没有正常弹出，可以换一个 QEMU 显示后端：
+如果想尝试单独的 QEMU 图形窗口，可以换一个显示后端：
 
 ```powershell
+.\scripts\run.ps1 -Display sdl
 .\scripts\run.ps1 -Display gtk
 .\scripts\run.ps1 -Display serial
 ```
 
-`serial` 和 `none` 都会使用无窗口模式，只在终端里输出启动日志；这种模式主要
-用来确认内核是否成功启动，不能操作 VGA Shell。WSL 提示 localhost 代理未镜像
-通常不影响运行，可以先忽略。
+默认的 `curses` 模式最稳，会直接在终端中显示和操作 VGA Shell。`sdl` 和
+`gtk` 依赖 WSLg 图形窗口；如果窗口没出现，可以先用 `curses`。`serial` 和
+`none` 都会使用无窗口模式，只在终端里输出启动日志；这种模式主要用来确认内核
+是否成功启动，不能操作 VGA Shell。WSL 提示 localhost 代理未镜像通常不影响运行，
+可以先忽略。
 
 ### Linux
 

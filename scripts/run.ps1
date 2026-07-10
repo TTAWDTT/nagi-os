@@ -1,6 +1,6 @@
 param(
     [ValidateSet("sdl", "gtk", "curses", "serial", "none")]
-    [string]$Display = "sdl"
+    [string]$Display = "curses"
 )
 
 $ErrorActionPreference = "Stop"
