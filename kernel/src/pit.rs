@@ -5,6 +5,7 @@ use crate::port;
 const PIT_CHANNEL0: u16 = 0x40;
 const PIT_COMMAND: u16 = 0x43;
 const PIT_BASE_FREQUENCY: u32 = 1_193_182;
+pub const CONFIGURED_FREQUENCY_HZ: u32 = 100;
 
 static TICKS: AtomicU64 = AtomicU64::new(0);
 

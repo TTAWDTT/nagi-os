@@ -1,6 +1,9 @@
+use core::sync::atomic::{AtomicU64, Ordering};
+
 use crate::{port, serial, shell, vga};
 
 const KEYBOARD_DATA_PORT: u16 = 0x60;
+const KEYBOARD_STATUS_PORT: u16 = 0x64;
 const INPUT_ROW: usize = 13;
 const INPUT_CAPACITY: usize = 62;
 
@@ -8,12 +11,15 @@ static mut INPUT: [u8; INPUT_CAPACITY] = [0; INPUT_CAPACITY];
 static mut INPUT_LEN: usize = 0;
 static mut SHIFT: bool = false;
 static mut SEEN_KEY: bool = false;
+static IRQ_COUNT: AtomicU64 = AtomicU64::new(0);
 
 pub fn init_screen() {
+    drain_output_buffer();
     redraw();
 }
 
 pub fn handle_interrupt() {
+    IRQ_COUNT.fetch_add(1, Ordering::Relaxed);
     let scancode = unsafe { port::inb(KEYBOARD_DATA_PORT) };
 
     match scancode {
@@ -29,6 +35,22 @@ pub fn handle_interrupt() {
                 handle_key(key);
             }
         }
+    }
+}
+
+pub fn irq_count() -> u64 {
+    IRQ_COUNT.load(Ordering::Relaxed)
+}
+
+fn drain_output_buffer() {
+    let mut attempts = 0;
+    while attempts < 16 {
+        let status = unsafe { port::inb(KEYBOARD_STATUS_PORT) };
+        if status & 0x01 == 0 {
+            break;
+        }
+        let _ = unsafe { port::inb(KEYBOARD_DATA_PORT) };
+        attempts += 1;
     }
 }
 

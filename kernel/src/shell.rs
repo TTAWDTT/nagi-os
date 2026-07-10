@@ -1,4 +1,4 @@
-use crate::{klog, pit, serial, vga};
+use crate::{keyboard, klog, pit, serial, vga};
 
 const OUTPUT_START_ROW: usize = 15;
 const OUTPUT_ROWS: usize = 9;
@@ -18,6 +18,7 @@ pub fn run(command: &str) {
         "" => {}
         "help" => show_help(),
         "ticks" => show_ticks(),
+        "sysstat" => show_sysstat(),
         "klog" => show_klog(),
         "clear" => {
             clear_output();
@@ -31,8 +32,9 @@ fn show_help() {
     write_output(0, "commands:");
     write_output(1, "  help   - show this command list");
     write_output(2, "  ticks  - show PIT timer ticks");
-    write_output(3, "  klog   - show early kernel events");
-    write_output(4, "  clear  - clear shell output");
+    write_output(3, "  sysstat - show observable kernel stats");
+    write_output(4, "  klog   - show early kernel events");
+    write_output(5, "  clear  - clear shell output");
 }
 
 fn show_ticks() {
@@ -47,6 +49,19 @@ fn show_klog() {
     clear_output();
     write_output(0, "early kernel log:");
     klog::dump_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1);
+}
+
+fn show_sysstat() {
+    clear_output();
+    let ticks = pit::ticks();
+    write_output(0, "Nagi OS system status:");
+    write_stat_line(1, "pit ticks", ticks);
+    write_stat_line(2, "uptime seconds", ticks / pit::CONFIGURED_FREQUENCY_HZ as u64);
+    write_stat_line(3, "timer irq0", ticks);
+    write_stat_line(4, "keyboard irq1", keyboard::irq_count());
+    write_stat_pair(5, "klog events", klog::len() as u64, klog::capacity() as u64);
+    write_output(6, "interrupts: IDT loaded, PIC remapped");
+    write_output(7, "shell: help ticks sysstat klog clear");
 }
 
 fn show_unknown(command: &str) {
@@ -73,6 +88,24 @@ fn write_output(offset: usize, text: &str) {
     }
     let color = vga::make_color(vga::Color::LightGray, vga::Color::Black);
     vga::write_line(OUTPUT_START_ROW + offset, text, color);
+}
+
+fn write_stat_line(offset: usize, label: &str, value: u64) {
+    let mut line = [0u8; 80];
+    let mut len = copy_bytes(&mut line, 0, label.as_bytes());
+    len = copy_bytes(&mut line, len, b": ");
+    len = append_u64(&mut line, len, value);
+    write_output(offset, as_str(&line[..len]));
+}
+
+fn write_stat_pair(offset: usize, label: &str, used: u64, total: u64) {
+    let mut line = [0u8; 80];
+    let mut len = copy_bytes(&mut line, 0, label.as_bytes());
+    len = copy_bytes(&mut line, len, b": ");
+    len = append_u64(&mut line, len, used);
+    len = copy_bytes(&mut line, len, b"/");
+    len = append_u64(&mut line, len, total);
+    write_output(offset, as_str(&line[..len]));
 }
 
 fn trim(text: &str) -> &str {

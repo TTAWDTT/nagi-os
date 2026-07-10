@@ -84,6 +84,14 @@ pub fn record(kind: EventType, arg0: u64, arg1: u64, name: &str) {
     }
 }
 
+pub fn len() -> usize {
+    unsafe { KLOG.len }
+}
+
+pub const fn capacity() -> usize {
+    LOG_CAPACITY
+}
+
 #[allow(dead_code)]
 pub fn dump_to_console() {
     unsafe {
