@@ -40,6 +40,8 @@
 - `tour` 课程答辩导览
 - `bench trace` 可观测性开销演示
 - `demo` 一键式课程答辩演示入口
+- 顶部标题栏、底部状态栏、输出区标题、输入光标
+- F1 / 上方向键召回上一条命令
 - 早期内核事件日志 (`klog`) 骨架
 
 ## 项目目标
@@ -72,8 +74,13 @@
 
 ```text
 help              查看命令列表
+?                 help 的简写
+help obs          查看可观测性命令
+help fs           查看 RAMFS 命令
+help demo         查看答辩演示命令
 ticks             查看 PIT tick
 sysstat           查看系统状态
+status            sysstat 的简写
 mem               查看物理页分配器
 viz               查看 ASCII 状态面板
 ps                查看内核任务表
@@ -100,18 +107,22 @@ run time          运行 time 用户程序
 run trace         运行 trace 用户程序
 run files         运行 RAMFS 用户程序
 ls                列出 RAMFS 文件
+files             ls 的简写
 cat readme        读取 RAMFS 文件
 echo hello > note 写入 note 文件
 rm note           删除 RAMFS 文件
 tour              查看答辩导览主题
+guide             tour 的简写
 tour next         翻到下一页导览
 bench trace       演示 trace on/off 的记录差异
 demo              查看演示主题
 demo sched        触发/说明调度演示
 demo fs           创建演示文件
 demo syscall      触发系统调用演示
-clear             清空输出区
+clear / cls       清空输出区
 ```
+
+输入时可以按 `F1` 或上方向键召回上一条命令。
 
 ## 如何构建和运行
 

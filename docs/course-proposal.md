@@ -20,6 +20,7 @@ be inspectable from inside the OS.
 - System call demo layer
 - User program demo model backed by syscalls
 - Shell and user commands
+- Text UI chrome, command aliases, and command recall
 - RAMFS single-directory file system
 - Kernel event log
 - Filtered kernel tracing and timeline view
@@ -42,6 +43,7 @@ The main innovation is an observability layer:
 - `bench trace`: demonstrate recorded vs skipped trace events
 - `explain`: turn kernel mechanisms into in-OS teaching notes
 - `demo`: trigger guided demonstrations for presentation and grading
+- F1 / Up recalls the previous command for smoother live demos
 
 ## Relationship to Orange'S
 
