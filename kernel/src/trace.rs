@@ -8,7 +8,7 @@ static mut TRACE: [TraceEvent; TRACE_CAPACITY] = [TraceEvent::empty(); TRACE_CAP
 static NEXT: AtomicUsize = AtomicUsize::new(0);
 static LEN: AtomicUsize = AtomicUsize::new(0);
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum TraceKind {
     Boot,
     Timer,
@@ -88,6 +88,10 @@ pub const fn capacity() -> usize {
 }
 
 pub fn dump_to_vga(start_row: usize, max_rows: usize) {
+    dump_filtered_to_vga(start_row, max_rows, None);
+}
+
+pub fn dump_filtered_to_vga(start_row: usize, max_rows: usize, filter: Option<&str>) {
     let color = vga::make_color(vga::Color::LightGray, vga::Color::Black);
     let len = LEN.load(Ordering::Relaxed);
     let next = NEXT.load(Ordering::Relaxed);
@@ -98,9 +102,14 @@ pub fn dump_to_vga(start_row: usize, max_rows: usize) {
     };
 
     let mut i = 0;
-    while i < len && i < max_rows {
+    let mut written = 0;
+    while i < len && written < max_rows {
         let idx = (start + i) % TRACE_CAPACITY;
         let event = unsafe { TRACE[idx] };
+        if !matches_filter(event.kind, filter) {
+            i += 1;
+            continue;
+        }
         let mut line = [0u8; 80];
         let mut out = copy_bytes(&mut line, 0, b"  t=");
         out = append_u64(&mut line, out, event.tick);
@@ -110,8 +119,26 @@ pub fn dump_to_vga(start_row: usize, max_rows: usize) {
         out = copy_bytes(&mut line, out, label_as_str(&event.label).as_bytes());
         out = copy_bytes(&mut line, out, b" v=");
         out = append_u64(&mut line, out, event.value);
-        vga::write_line(start_row + i, as_str(&line[..out]), color);
+        vga::write_line(start_row + written, as_str(&line[..out]), color);
+        written += 1;
         i += 1;
+    }
+}
+
+fn matches_filter(kind: TraceKind, filter: Option<&str>) -> bool {
+    match filter {
+        None => true,
+        Some("irq") => kind == TraceKind::Timer || kind == TraceKind::Keyboard,
+        Some("boot") => kind == TraceKind::Boot,
+        Some("timer") => kind == TraceKind::Timer,
+        Some("kbd") | Some("key") | Some("keyboard") => kind == TraceKind::Keyboard,
+        Some("shell") => kind == TraceKind::Shell,
+        Some("mem") | Some("memory") => kind == TraceKind::Memory,
+        Some("sched") | Some("schedule") => kind == TraceKind::Schedule,
+        Some("syscall") | Some("sys") => kind == TraceKind::Syscall,
+        Some("file") | Some("fs") => kind == TraceKind::File,
+        Some("demo") => kind == TraceKind::Demo,
+        Some(_) => false,
     }
 }
 

@@ -15,6 +15,15 @@ pub fn run(command: &str) {
     serial::write_str("\r\n");
     trace::record(trace::TraceKind::Shell, command.len() as u64, command);
 
+    if let Some(filter) = command_arg(command, "trace") {
+        show_trace_filtered(filter);
+        return;
+    }
+    if let Some(topic) = command_arg(command, "explain") {
+        show_explain(topic);
+        return;
+    }
+
     match command {
         "" => {}
         "help" => show_help(),
@@ -30,6 +39,8 @@ pub fn run(command: &str) {
         "syscall stats" => show_syscall("stats"),
         "klog" => show_klog(),
         "trace" => show_trace(),
+        "timeline" => show_timeline(),
+        "explain" => show_explain("overview"),
         "clear" => {
             clear_output();
         }
@@ -46,7 +57,7 @@ fn show_help() {
     write_output(4, "  mem    - show physical page allocator");
     write_output(5, "  ps     - list kernel task model");
     write_output(6, "  sched  - show scheduler state");
-    write_output(7, "  syscall - run syscall demo");
+    write_output(7, "  syscall timeline explain");
     write_output(8, "  klog trace clear");
 }
 
@@ -83,6 +94,64 @@ fn show_trace() {
     clear_output();
     write_output(0, "recent trace events:");
     trace::dump_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1);
+}
+
+fn show_trace_filtered(filter: &str) {
+    clear_output();
+    let mut line = [0u8; 80];
+    let mut len = copy_bytes(&mut line, 0, b"trace filter: ");
+    len = copy_bytes(&mut line, len, filter.as_bytes());
+    write_output(0, as_str(&line[..len]));
+    trace::dump_filtered_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1, Some(filter));
+}
+
+fn show_timeline() {
+    clear_output();
+    write_output(0, "kernel event timeline:");
+    trace::dump_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1);
+}
+
+fn show_explain(topic: &str) {
+    clear_output();
+    match topic {
+        "irq" | "interrupt" => {
+            write_output(0, "IRQ path:");
+            write_output(1, "hardware -> IDT gate -> rust_irq_handler");
+            write_output(2, "timer irq0 increments PIT ticks");
+            write_output(3, "keyboard irq1 feeds shell input");
+            write_output(4, "each handled IRQ sends PIC EOI");
+            write_output(5, "observe: ticks, trace irq, sysstat");
+        }
+        "sched" | "schedule" => {
+            write_output(0, "Scheduler model:");
+            write_output(1, "PIT tick drives a round-robin task table");
+            write_output(2, "every 25 ticks current task rotates");
+            write_output(3, "task switch events enter trace and klog");
+            write_output(4, "observe: ps, sched, trace sched");
+        }
+        "mem" | "memory" => {
+            write_output(0, "Memory model:");
+            write_output(1, "Nagi uses a 4 KiB physical page pool");
+            write_output(2, "early pages are reserved for the kernel");
+            write_output(3, "tasks allocate stack pages from the pool");
+            write_output(4, "observe: mem, sysstat, trace mem");
+        }
+        "syscall" | "sys" => {
+            write_output(0, "Syscall model:");
+            write_output(1, "user intent is routed through syscall table");
+            write_output(2, "write/time/trace/stats are implemented");
+            write_output(3, "each call records trace and klog entries");
+            write_output(4, "observe: syscall, trace syscall");
+        }
+        _ => {
+            write_output(0, "explain topics:");
+            write_output(1, "  explain irq");
+            write_output(2, "  explain sched");
+            write_output(3, "  explain mem");
+            write_output(4, "  explain syscall");
+            write_output(5, "goal: make kernel internals teachable");
+        }
+    }
 }
 
 fn show_mem() {
@@ -221,6 +290,26 @@ fn trim(text: &str) -> &str {
     }
 
     unsafe { core::str::from_utf8_unchecked(&bytes[start..end]) }
+}
+
+fn command_arg<'a>(command: &'a str, name: &str) -> Option<&'a str> {
+    let bytes = command.as_bytes();
+    let name_bytes = name.as_bytes();
+    if bytes.len() <= name_bytes.len() {
+        return None;
+    }
+    let mut i = 0;
+    while i < name_bytes.len() {
+        if bytes[i] != name_bytes[i] {
+            return None;
+        }
+        i += 1;
+    }
+    if bytes[name_bytes.len()] != b' ' {
+        return None;
+    }
+    let arg = unsafe { core::str::from_utf8_unchecked(&bytes[name_bytes.len() + 1..]) };
+    Some(trim(arg))
 }
 
 fn copy_bytes(dst: &mut [u8], mut idx: usize, src: &[u8]) -> usize {
