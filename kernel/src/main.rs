@@ -13,6 +13,7 @@ mod pit;
 mod port;
 mod serial;
 mod shell;
+mod syscall;
 mod task;
 mod trace;
 mod vga;
@@ -35,6 +36,7 @@ pub extern "C" fn _start() -> ! {
     klog::record(klog::EventType::Boot, 0, 0, "kernel");
     mem::init();
     task::init();
+    syscall::init();
     klog::record(klog::EventType::Trace, 1, 0, "trace-ready");
     idt::init();
     klog::record(klog::EventType::Trace, 2, 0, "idt-ready");
@@ -56,7 +58,7 @@ pub extern "C" fn _start() -> ! {
     vga::write_line(9, "kernel: keyboard IRQ1 enabled", ok);
     vga::write_line(10, "kernel: physical page allocator ready", ok);
     vga::write_line(11, "kernel: observable round-robin task model ready", ok);
-    vga::write_line(12, "early klog: memory, trace, task, irq events recorded", normal);
+    vga::write_line(12, "kernel: syscall demo table ready", ok);
     keyboard::init_screen();
     shell::init();
 

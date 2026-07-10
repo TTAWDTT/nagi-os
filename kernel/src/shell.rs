@@ -1,4 +1,4 @@
-use crate::{keyboard, klog, mem, pit, serial, task, trace, vga};
+use crate::{keyboard, klog, mem, pit, serial, syscall, task, trace, vga};
 
 const OUTPUT_START_ROW: usize = 15;
 const OUTPUT_ROWS: usize = 9;
@@ -23,6 +23,11 @@ pub fn run(command: &str) {
         "mem" => show_mem(),
         "ps" => show_ps(),
         "sched" => show_sched(),
+        "syscall" => show_syscall("demo"),
+        "syscall write" => show_syscall("write"),
+        "syscall time" => show_syscall("time"),
+        "syscall trace" => show_syscall("trace"),
+        "syscall stats" => show_syscall("stats"),
         "klog" => show_klog(),
         "trace" => show_trace(),
         "clear" => {
@@ -41,7 +46,8 @@ fn show_help() {
     write_output(4, "  mem    - show physical page allocator");
     write_output(5, "  ps     - list kernel task model");
     write_output(6, "  sched  - show scheduler state");
-    write_output(7, "  klog trace clear");
+    write_output(7, "  syscall - run syscall demo");
+    write_output(8, "  klog trace clear");
 }
 
 fn show_ticks() {
@@ -70,7 +76,7 @@ fn show_sysstat() {
     write_stat_pair(6, "trace events", trace::len() as u64, trace::capacity() as u64);
     let memory = mem::stats();
     write_stat_pair(7, "memory pages", memory.used_pages as u64, memory.total_pages as u64);
-    write_stat_pair(8, "tasks/switches", task::count() as u64, task::switches() as u64);
+    write_stat_pair(8, "tasks/syscalls", task::count() as u64, syscall::calls());
 }
 
 fn show_trace() {
@@ -109,6 +115,29 @@ fn show_sched() {
     write_output(5, "model: observable kernel-task rotation");
     write_output(6, "note: context switch is simulated");
     write_output(7, "trace kind: SCHED, klog type: SCHED");
+}
+
+fn show_syscall(mode: &str) {
+    clear_output();
+    write_output(0, "syscall table:");
+    syscall::dump_table_to_vga(OUTPUT_START_ROW + 1, 4);
+
+    if mode == "demo" || mode == "write" {
+        let ret = syscall::invoke(syscall::SYS_WRITE, 14, "hello-syscall");
+        write_stat_line(5, "sys_write return", ret);
+    }
+    if mode == "demo" || mode == "time" {
+        let ret = syscall::invoke(syscall::SYS_TIME, 0, "time");
+        write_stat_line(6, "sys_time ticks", ret);
+    }
+    if mode == "demo" || mode == "trace" {
+        let ret = syscall::invoke(syscall::SYS_TRACE, 7, "trace");
+        write_stat_line(7, "sys_trace return", ret);
+    }
+    if mode == "demo" || mode == "stats" {
+        let ret = syscall::invoke(syscall::SYS_STATS, 0, "stats");
+        write_stat_line(8, "sys_stats calls", ret);
+    }
 }
 
 fn show_unknown(command: &str) {
