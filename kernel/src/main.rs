@@ -17,6 +17,7 @@ mod shell;
 mod syscall;
 mod task;
 mod trace;
+mod user;
 mod vga;
 
 #[unsafe(no_mangle)]
@@ -39,6 +40,7 @@ pub extern "C" fn _start() -> ! {
     task::init();
     fs::init();
     syscall::init();
+    user::init();
     klog::record(klog::EventType::Trace, 1, 0, "trace-ready");
     idt::init();
     klog::record(klog::EventType::Trace, 2, 0, "idt-ready");
@@ -60,7 +62,7 @@ pub extern "C" fn _start() -> ! {
     vga::write_line(9, "kernel: keyboard IRQ1 enabled", ok);
     vga::write_line(10, "kernel: physical page allocator ready", ok);
     vga::write_line(11, "kernel: observable round-robin task model ready", ok);
-    vga::write_line(12, "kernel: RAMFS and syscall demo table ready", ok);
+    vga::write_line(12, "kernel: RAMFS, syscall, and user demos ready", ok);
     keyboard::init_screen();
     shell::init();
 

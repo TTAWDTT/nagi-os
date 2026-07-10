@@ -1,6 +1,6 @@
 use core::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::{fs, keyboard, klog, mem, pit, serial, syscall, task, trace, vga};
+use crate::{fs, keyboard, klog, mem, pit, serial, syscall, task, trace, user, vga};
 
 const OUTPUT_START_ROW: usize = 15;
 const OUTPUT_ROWS: usize = 9;
@@ -40,6 +40,10 @@ pub fn run(command: &str) {
     }
     if let Some(topic) = command_arg(command, "bench") {
         show_bench(topic);
+        return;
+    }
+    if let Some(name) = command_arg(command, "run") {
+        show_run(name);
         return;
     }
     if let Some(topic) = command_arg(command, "explain") {
@@ -85,6 +89,7 @@ pub fn run(command: &str) {
         "klog" => show_klog(),
         "trace" => show_trace(),
         "bench" => show_bench("overview"),
+        "run" => show_run("overview"),
         "timeline" => show_timeline(),
         "explain" => show_explain("overview"),
         "tour" => show_tour("overview"),
@@ -106,7 +111,7 @@ fn show_help() {
     write_output(5, "  viz    - visual kernel dashboard");
     write_output(6, "  ps sched - task and scheduler state");
     write_output(7, "  ls cat echo rm");
-    write_output(8, "  syscall timeline explain tour bench");
+    write_output(8, "  syscall run timeline tour bench");
 }
 
 fn show_ticks() {
@@ -135,7 +140,7 @@ fn show_sysstat() {
     write_stat_pair(6, "trace events", trace::len() as u64, trace::capacity() as u64);
     let memory = mem::stats();
     write_stat_pair(7, "memory pages", memory.used_pages as u64, memory.total_pages as u64);
-    write_stat_pair(8, "skipped/syscalls", trace::skipped() as u64, syscall::calls());
+    write_stat_pair(8, "user/syscalls", user::count() as u64, syscall::calls());
 }
 
 fn show_trace() {
@@ -305,7 +310,7 @@ fn show_tour(topic: &str) {
             write_output(0, "tour 4/7: syscall");
             write_output(1, "sys_write/sys_time/sys_trace/sys_stats");
             write_output(2, "each syscall records trace and klog");
-            write_output(3, "observe: syscall, demo syscall");
+            write_output(3, "observe: syscall, run hello, run time");
         }
         "fs" | "file" => {
             TOUR_STEP.store(4, Ordering::Relaxed);
@@ -326,8 +331,8 @@ fn show_tour(topic: &str) {
             TOUR_STEP.store(6, Ordering::Relaxed);
             write_output(0, "tour 7/7: presentation flow");
             write_output(1, "run: viz -> mem -> ps -> syscall");
-            write_output(2, "run: ls -> demo fs -> timeline");
-            write_output(3, "close with: explain sched");
+            write_output(2, "run: run hello -> demo fs -> timeline");
+            write_output(3, "close with: bench trace");
             write_output(4, "use: tour next to cycle again");
         }
         _ => {
@@ -453,6 +458,26 @@ fn show_viz() {
     write_stat_line(6, "pit ticks", pit::ticks());
     write_stat_line(7, "syscall calls", syscall::calls());
     write_stat_line(8, "ramfs files", fs::count() as u64);
+}
+
+fn show_run(name: &str) {
+    clear_output();
+    if name == "overview" {
+        write_output(0, "user programs:");
+        user::list_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1);
+        return;
+    }
+
+    let result = user::run(name);
+    write_output(0, "user program result:");
+    let mut line = [0u8; 80];
+    let mut len = copy_bytes(&mut line, 0, b"program: ");
+    len = copy_bytes(&mut line, len, name.as_bytes());
+    write_output(1, as_str(&line[..len]));
+    write_stat_line(2, "exit code", result.exit_code);
+    write_stat_line(3, "return value", result.value);
+    write_output(4, result.message);
+    write_output(5, "observe: syscall, trace syscall, timeline");
 }
 
 fn show_ls() {
