@@ -209,11 +209,11 @@ pub fn run(command: &str) {
 fn show_help() {
     clear_output();
     write_output(0, "quick keys");
-    write_output(2, "h help      s status    v overview");
-    write_output(3, "m memory    p tasks     f files");
-    write_output(4, "t timeline  g guide     n next");
-    write_output(5, "r programs  b bench     d demos");
-    write_output(6, "q clear");
+    write_key_line(2, "h", "help       s status     v overview");
+    write_key_line(3, "m", "memory     p tasks      f files");
+    write_key_line(4, "t", "timeline   g guide      n next");
+    write_key_line(5, "r", "programs   b bench      d demos");
+    write_key_line(6, "q", "clear");
     write_output(8, "more: help obs, help fs, help demo");
 }
 
@@ -718,8 +718,23 @@ fn write_output(offset: usize, text: &str) {
     if offset >= OUTPUT_ROWS {
         return;
     }
-    let color = vga::make_color(vga::Color::LightGray, vga::Color::Black);
+    let color = if offset == 0 {
+        vga::make_color(vga::Color::LightCyan, vga::Color::Black)
+    } else {
+        vga::make_color(vga::Color::LightGray, vga::Color::Black)
+    };
     vga::write_line(OUTPUT_START_ROW + offset, text, color);
+}
+
+fn write_key_line(offset: usize, key: &str, text: &str) {
+    if offset >= OUTPUT_ROWS {
+        return;
+    }
+    let key_color = vga::make_color(vga::Color::LightGreen, vga::Color::Black);
+    let text_color = vga::make_color(vga::Color::LightGray, vga::Color::Black);
+    vga::write_line(OUTPUT_START_ROW + offset, "", text_color);
+    vga::write_at(OUTPUT_START_ROW + offset, 2, key, key_color);
+    vga::write_at(OUTPUT_START_ROW + offset, 5, text, text_color);
 }
 
 fn write_stat_line(offset: usize, label: &str, value: u64) {

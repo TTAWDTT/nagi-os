@@ -20,9 +20,17 @@ pub fn draw_header() {
     vga::write_line(0, "", muted);
     vga::write_at(0, 2, "Nagi OS", title);
     vga::write_at(0, 12, "quiet observable kernel", muted);
-    vga::write_at(0, 61, "h help  g guide", muted);
+    vga::write_at(0, 61, "h", title);
+    vga::write_at(0, 63, "help", muted);
+    vga::write_at(0, 69, "g", title);
+    vga::write_at(0, 71, "guide", muted);
     vga::write_line(1, "", muted);
-    vga::write_at(1, 2, "Tab/Right completes.  F1/Up recalls.  Esc clears.", muted);
+    vga::write_at(1, 2, "Tab/Right", title);
+    vga::write_at(1, 12, "complete    ", muted);
+    vga::write_at(1, 24, "Left/Right", title);
+    vga::write_at(1, 35, "move    ", muted);
+    vga::write_at(1, 43, "F1/Up", title);
+    vga::write_at(1, 49, "recall    Esc clears", muted);
     vga::write_line(2, "", muted);
 }
 
@@ -71,7 +79,7 @@ pub fn draw_footer(status: &str) {
     vga::write_at(FOOTER_ROW, 59, "Enter to run", color);
 }
 
-pub fn draw_prompt(input: &str, suggestion: Option<&str>, full: bool) {
+pub fn draw_prompt(input: &str, suggestion: Option<&str>, cursor: usize, full: bool) {
     let base = vga::make_color(vga::Color::LightGray, vga::Color::Black);
     let prompt = vga::make_color(vga::Color::LightCyan, vga::Color::Black);
     let ghost = vga::make_color(vga::Color::DarkGray, vga::Color::Black);
@@ -79,10 +87,10 @@ pub fn draw_prompt(input: &str, suggestion: Option<&str>, full: bool) {
     vga::write_line(PROMPT_ROW, "", base);
     vga::write_at(PROMPT_ROW, 2, ">", prompt);
     vga::write_at(PROMPT_ROW, 4, input, base);
-    let cursor_col = 4 + input.len();
+    let cursor_col = 4 + cursor;
 
     if let Some(candidate) = suggestion {
-        if starts_with(candidate, input) && candidate.len() > input.len() {
+        if cursor == input.len() && starts_with(candidate, input) && candidate.len() > input.len() {
             vga::write_at(PROMPT_ROW, cursor_col, &candidate[input.len()..], ghost);
         }
     }

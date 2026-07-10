@@ -23,6 +23,7 @@ be inspectable from inside the OS.
 - Text UI chrome, command aliases, and command recall
 - Command prediction with Right/Tab completion
 - Minimal one-key command shortcuts for live demonstrations
+- Shell line editing with cursor movement, delete, home/end, and completion
 - RAMFS single-directory file system
 - Kernel event log
 - Filtered kernel tracing and timeline view
@@ -48,6 +49,7 @@ The main innovation is an observability layer:
 - F1 / Up recalls the previous command for smoother live demos
 - Ghost-text command prediction makes the shell easier to operate during grading
 - One-key shortcuts reduce typing while keeping full commands available
+- Subtle color highlights separate headings, shortcut keys, and body text
 
 ## Relationship to Orange'S
 
