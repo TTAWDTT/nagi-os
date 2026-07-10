@@ -1,4 +1,4 @@
-use crate::{keyboard, klog, mem, pit, serial, syscall, task, trace, vga};
+use crate::{fs, keyboard, klog, mem, pit, serial, syscall, task, trace, vga};
 
 const OUTPUT_START_ROW: usize = 15;
 const OUTPUT_ROWS: usize = 9;
@@ -23,6 +23,18 @@ pub fn run(command: &str) {
         show_explain(topic);
         return;
     }
+    if let Some(name) = command_arg(command, "cat") {
+        show_cat(name);
+        return;
+    }
+    if let Some(text) = command_arg(command, "echo") {
+        show_echo(text);
+        return;
+    }
+    if let Some(name) = command_arg(command, "rm") {
+        show_rm(name);
+        return;
+    }
 
     match command {
         "" => {}
@@ -31,6 +43,7 @@ pub fn run(command: &str) {
         "sysstat" => show_sysstat(),
         "mem" => show_mem(),
         "viz" => show_viz(),
+        "ls" => show_ls(),
         "ps" => show_ps(),
         "sched" => show_sched(),
         "syscall" => show_syscall("demo"),
@@ -58,8 +71,8 @@ fn show_help() {
     write_output(4, "  mem    - show physical page allocator");
     write_output(5, "  viz    - visual kernel dashboard");
     write_output(6, "  ps sched - task and scheduler state");
-    write_output(7, "  syscall timeline explain");
-    write_output(8, "  klog trace clear");
+    write_output(7, "  ls cat echo rm");
+    write_output(8, "  syscall timeline explain");
 }
 
 fn show_ticks() {
@@ -180,7 +193,44 @@ fn show_viz() {
     write_bar(5, "sched", task::switches() as u64, 32);
     write_stat_line(6, "pit ticks", pit::ticks());
     write_stat_line(7, "syscall calls", syscall::calls());
-    write_output(8, "try: mem ps sched trace irq timeline");
+    write_stat_line(8, "ramfs files", fs::count() as u64);
+}
+
+fn show_ls() {
+    clear_output();
+    write_output(0, "RAMFS files:");
+    fs::list_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1);
+}
+
+fn show_cat(name: &str) {
+    clear_output();
+    let mut line = [0u8; 80];
+    let mut len = copy_bytes(&mut line, 0, b"cat ");
+    len = copy_bytes(&mut line, len, name.as_bytes());
+    write_output(0, as_str(&line[..len]));
+    if !fs::cat_to_vga(name, OUTPUT_START_ROW + 1) {
+        write_output(1, "file not found");
+    }
+}
+
+fn show_echo(text: &str) {
+    clear_output();
+    let content = strip_note_redirect(text);
+    if fs::create_or_write("note", content) {
+        write_output(0, "wrote RAMFS file: note");
+        write_output(1, "try: cat note");
+    } else {
+        write_output(0, "RAMFS write failed");
+    }
+}
+
+fn show_rm(name: &str) {
+    clear_output();
+    if fs::remove(name) {
+        write_output(0, "removed RAMFS file");
+    } else {
+        write_output(0, "file not found");
+    }
 }
 
 fn show_ps() {
@@ -345,6 +395,28 @@ fn command_arg<'a>(command: &'a str, name: &str) -> Option<&'a str> {
     }
     let arg = unsafe { core::str::from_utf8_unchecked(&bytes[name_bytes.len() + 1..]) };
     Some(trim(arg))
+}
+
+fn strip_note_redirect(text: &str) -> &str {
+    let bytes = text.as_bytes();
+    if bytes.len() < 7 {
+        return text;
+    }
+
+    let suffix = b" > note";
+    if bytes.len() < suffix.len() {
+        return text;
+    }
+    let start = bytes.len() - suffix.len();
+    let mut i = 0;
+    while i < suffix.len() {
+        if bytes[start + i] != suffix[i] {
+            return text;
+        }
+        i += 1;
+    }
+
+    trim(unsafe { core::str::from_utf8_unchecked(&bytes[..start]) })
 }
 
 fn copy_bytes(dst: &mut [u8], mut idx: usize, src: &[u8]) -> usize {
