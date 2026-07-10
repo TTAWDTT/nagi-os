@@ -242,6 +242,8 @@ fn show_colors() {
     write_color_sample(7, 22, "13 pink", vga::Color::Pink);
     write_color_sample(7, 42, "14 yellow", vga::Color::Yellow);
     write_color_sample(7, 62, "15 white", vga::Color::White);
+
+    write_output(8, "If gray looks wrong in curses, run with -Display vnc.");
 }
 
 fn show_help_topic(topic: &str) {

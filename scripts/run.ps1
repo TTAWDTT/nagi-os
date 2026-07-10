@@ -40,6 +40,9 @@ if ($DisplayMode -eq "serial") {
     Write-Host "Open it with a VNC viewer to see the real VGA palette."
     $QemuArgs = "$QemuArgs -display none -vnc :$VncDisplay"
 } else {
+    if ($DisplayMode -eq "curses") {
+        Write-Host "Note: QEMU curses may remap VGA gray colors. Use -Display vnc for the real palette."
+    }
     $QemuArgs = "$QemuArgs -display $DisplayMode"
 }
 

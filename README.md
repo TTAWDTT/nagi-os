@@ -242,14 +242,23 @@ QEMU_STILL_RUNNING_AFTER_5S
 ```powershell
 .\scripts\run.ps1 -Display sdl
 .\scripts\run.ps1 -Display gtk
+.\scripts\run.ps1 -Display vnc
 .\scripts\run.ps1 -Display serial
 ```
 
 默认的 `curses` 模式最稳，会直接在终端中显示和操作 VGA Shell。`sdl` 和
-`gtk` 依赖 WSLg 图形窗口；如果窗口没出现，可以先用 `curses`。`serial` 和
-`none` 都会使用无窗口模式，只在终端里输出启动日志；这种模式主要用来确认内核
-是否成功启动，不能操作 VGA Shell。WSL 提示 localhost 代理未镜像通常不影响运行，
-可以先忽略。
+`gtk` 依赖 WSLg 图形窗口；如果窗口没出现，可以先用 `curses`。不过 `curses`
+会经过终端颜色映射，某些终端会把 VGA 的 `darkgray` / `lightgray` 显示错。
+需要检查真实 VGA 调色板时，推荐使用 VNC 模式：
+
+```powershell
+.\scripts\run.ps1 -Display vnc
+```
+
+脚本会提示类似 `localhost:5901` 的地址，用 VNC Viewer 打开即可。进入系统后输入
+`colors` 可以查看 16 色调色板。`serial` 和 `none` 都会使用无窗口模式，只在终端里
+输出启动日志；这种模式主要用来确认内核是否成功启动，不能操作 VGA Shell。WSL 提示
+localhost 代理未镜像通常不影响运行，可以先忽略。
 
 ### Linux
 
