@@ -1,7 +1,6 @@
 use crate::{pit, trace, vga};
 
 pub const PROMPT_ROW: usize = 13;
-const HINT_ROW: usize = 12;
 pub const OUTPUT_TITLE_ROW: usize = 14;
 pub const OUTPUT_START_ROW: usize = 15;
 pub const OUTPUT_ROWS: usize = 9;
@@ -84,22 +83,17 @@ pub fn draw_prompt(input: &str, suggestion: Option<&str>, cursor: usize, full: b
     let base = vga::make_color(vga::Color::LightGray, vga::Color::Black);
     let input_color = vga::make_color(vga::Color::LightBlue, vga::Color::Black);
     let prompt = vga::make_color(vga::Color::LightCyan, vga::Color::Black);
-    let hint = vga::make_color(vga::Color::DarkGray, vga::Color::Black);
-    let hint_key = vga::make_color(vga::Color::LightCyan, vga::Color::Black);
+    let ghost = vga::make_color(vga::Color::LightGray, vga::Color::Black);
     let warn = vga::make_color(vga::Color::Yellow, vga::Color::Black);
-
-    vga::write_line(HINT_ROW, "", hint);
-    if let Some(candidate) = suggestion {
-        if cursor == input.len() && starts_with(candidate, input) && candidate.len() > input.len() {
-            vga::write_at(HINT_ROW, 4, "hint", hint_key);
-            vga::write_at(HINT_ROW, 10, candidate, hint);
-            vga::write_at(HINT_ROW, 34, "Tab/Right", hint_key);
-        }
-    }
 
     vga::write_line(PROMPT_ROW, "", base);
     vga::write_at(PROMPT_ROW, 2, ">", prompt);
     vga::write_at(PROMPT_ROW, 4, input, input_color);
+    if let Some(candidate) = suggestion {
+        if cursor == input.len() && starts_with(candidate, input) && candidate.len() > input.len() {
+            vga::write_at(PROMPT_ROW, 4 + input.len(), tail(candidate, input.len()), ghost);
+        }
+    }
     let cursor_col = 4 + cursor;
 
     if cursor_col < 80 {
@@ -109,6 +103,10 @@ pub fn draw_prompt(input: &str, suggestion: Option<&str>, cursor: usize, full: b
     if full {
         vga::write_at(PROMPT_ROW, 70, "full", warn);
     }
+}
+
+fn tail(text: &str, start: usize) -> &str {
+    unsafe { core::str::from_utf8_unchecked(&text.as_bytes()[start..]) }
 }
 
 fn starts_with(text: &str, prefix: &str) -> bool {
