@@ -2,7 +2,7 @@ use core::arch::{asm, global_asm};
 use core::cell::UnsafeCell;
 use core::mem::size_of;
 
-use crate::{keyboard, pic, pit, serial, trace, vga};
+use crate::{keyboard, pic, pit, serial, task, trace, vga};
 
 const IDT_LEN: usize = 256;
 const KERNEL_CODE_SELECTOR: u16 = 0x18;
@@ -552,6 +552,7 @@ pub extern "C" fn rust_irq_handler(vector: u64) {
         } else if tick % 100 == 0 {
             trace::record(trace::TraceKind::Timer, tick, "irq0-1s");
         }
+        task::on_tick(tick);
     } else if vector == pic::PIC1_OFFSET as u64 + 1 {
         keyboard::handle_interrupt();
     }

@@ -1,4 +1,4 @@
-use crate::{keyboard, klog, mem, pit, serial, trace, vga};
+use crate::{keyboard, klog, mem, pit, serial, task, trace, vga};
 
 const OUTPUT_START_ROW: usize = 15;
 const OUTPUT_ROWS: usize = 9;
@@ -21,6 +21,8 @@ pub fn run(command: &str) {
         "ticks" => show_ticks(),
         "sysstat" => show_sysstat(),
         "mem" => show_mem(),
+        "ps" => show_ps(),
+        "sched" => show_sched(),
         "klog" => show_klog(),
         "trace" => show_trace(),
         "clear" => {
@@ -37,9 +39,9 @@ fn show_help() {
     write_output(2, "  ticks  - show PIT timer ticks");
     write_output(3, "  sysstat - show observable kernel stats");
     write_output(4, "  mem    - show physical page allocator");
-    write_output(5, "  klog   - show early kernel events");
-    write_output(6, "  trace  - show recent trace events");
-    write_output(7, "  clear  - clear shell output");
+    write_output(5, "  ps     - list kernel task model");
+    write_output(6, "  sched  - show scheduler state");
+    write_output(7, "  klog trace clear");
 }
 
 fn show_ticks() {
@@ -68,7 +70,7 @@ fn show_sysstat() {
     write_stat_pair(6, "trace events", trace::len() as u64, trace::capacity() as u64);
     let memory = mem::stats();
     write_stat_pair(7, "memory pages", memory.used_pages as u64, memory.total_pages as u64);
-    write_output(8, "shell: help ticks sysstat mem klog trace clear");
+    write_stat_pair(8, "tasks/switches", task::count() as u64, task::switches() as u64);
 }
 
 fn show_trace() {
@@ -89,6 +91,24 @@ fn show_mem() {
     write_stat_line(6, "free calls", stats.frees as u64);
     write_stat_line(7, "failed allocs", stats.failed_allocations as u64);
     write_memory_bar(8);
+}
+
+fn show_ps() {
+    clear_output();
+    write_output(0, "kernel tasks:");
+    task::dump_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1);
+}
+
+fn show_sched() {
+    clear_output();
+    write_output(0, "round-robin scheduler:");
+    write_stat_line(1, "task count", task::count() as u64);
+    write_stat_line(2, "current pid", task::current_pid() as u64);
+    write_stat_line(3, "switches", task::switches() as u64);
+    write_stat_line(4, "interval ticks", task::interval_ticks());
+    write_output(5, "model: observable kernel-task rotation");
+    write_output(6, "note: context switch is simulated");
+    write_output(7, "trace kind: SCHED, klog type: SCHED");
 }
 
 fn show_unknown(command: &str) {
