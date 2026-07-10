@@ -18,8 +18,28 @@ pub fn run(command: &str) {
     serial::write_str("\r\n");
     trace::record(trace::TraceKind::Shell, command.len() as u64, command);
 
+    match command {
+        "trace on" => {
+            show_trace_control(true);
+            return;
+        }
+        "trace off" => {
+            show_trace_control(false);
+            return;
+        }
+        "trace status" => {
+            show_trace_status();
+            return;
+        }
+        _ => {}
+    }
+
     if let Some(filter) = command_arg(command, "trace") {
         show_trace_filtered(filter);
+        return;
+    }
+    if let Some(topic) = command_arg(command, "bench") {
+        show_bench(topic);
         return;
     }
     if let Some(topic) = command_arg(command, "explain") {
@@ -64,6 +84,7 @@ pub fn run(command: &str) {
         "syscall stats" => show_syscall("stats"),
         "klog" => show_klog(),
         "trace" => show_trace(),
+        "bench" => show_bench("overview"),
         "timeline" => show_timeline(),
         "explain" => show_explain("overview"),
         "tour" => show_tour("overview"),
@@ -85,7 +106,7 @@ fn show_help() {
     write_output(5, "  viz    - visual kernel dashboard");
     write_output(6, "  ps sched - task and scheduler state");
     write_output(7, "  ls cat echo rm");
-    write_output(8, "  syscall timeline explain tour demo");
+    write_output(8, "  syscall timeline explain tour bench");
 }
 
 fn show_ticks() {
@@ -114,7 +135,7 @@ fn show_sysstat() {
     write_stat_pair(6, "trace events", trace::len() as u64, trace::capacity() as u64);
     let memory = mem::stats();
     write_stat_pair(7, "memory pages", memory.used_pages as u64, memory.total_pages as u64);
-    write_stat_pair(8, "tasks/syscalls", task::count() as u64, syscall::calls());
+    write_stat_pair(8, "skipped/syscalls", trace::skipped() as u64, syscall::calls());
 }
 
 fn show_trace() {
@@ -132,10 +153,75 @@ fn show_trace_filtered(filter: &str) {
     trace::dump_filtered_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1, Some(filter));
 }
 
+fn show_trace_control(enabled: bool) {
+    trace::set_enabled(enabled);
+    clear_output();
+    if enabled {
+        trace::record(trace::TraceKind::Demo, 1, "trace-on");
+        write_output(0, "trace recording: on");
+    } else {
+        write_output(0, "trace recording: off");
+    }
+    write_stat_line(1, "trace events", trace::len() as u64);
+    write_stat_line(2, "skipped events", trace::skipped() as u64);
+    write_output(3, "try: trace status");
+}
+
+fn show_trace_status() {
+    clear_output();
+    if trace::is_enabled() {
+        write_output(0, "trace recording: on");
+    } else {
+        write_output(0, "trace recording: off");
+    }
+    write_stat_pair(1, "trace events", trace::len() as u64, trace::capacity() as u64);
+    write_stat_line(2, "skipped events", trace::skipped() as u64);
+    write_output(3, "commands: trace on, trace off");
+}
+
 fn show_timeline() {
     clear_output();
     write_output(0, "kernel event timeline:");
     trace::dump_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1);
+}
+
+fn show_bench(topic: &str) {
+    clear_output();
+    match topic {
+        "trace" => {
+            let skipped_before = trace::skipped();
+            trace::set_enabled(true);
+            let mut i = 0;
+            while i < 16 {
+                trace::record(trace::TraceKind::Demo, i, "bench-on");
+                i += 1;
+            }
+
+            trace::set_enabled(false);
+            let mut j = 0;
+            while j < 16 {
+                trace::record(trace::TraceKind::Demo, j, "bench-off");
+                j += 1;
+            }
+            let skipped_after = trace::skipped();
+            trace::set_enabled(true);
+            trace::record(trace::TraceKind::Demo, 16, "bench-done");
+
+            write_output(0, "bench trace:");
+            write_stat_line(1, "enabled attempts", 16);
+            write_stat_line(2, "disabled attempts", 16);
+            write_stat_line(3, "new skipped events", (skipped_after - skipped_before) as u64);
+            write_stat_pair(4, "trace events", trace::len() as u64, trace::capacity() as u64);
+            write_output(5, "meaning: disabled tracing drops events");
+            write_output(6, "observe: trace demo, trace status");
+        }
+        _ => {
+            write_output(0, "bench topics:");
+            write_output(1, "  bench trace");
+            write_output(2, "shows trace recording vs skipped events");
+            write_output(3, "useful for discussing observability cost");
+        }
+    }
 }
 
 fn show_explain(topic: &str) {

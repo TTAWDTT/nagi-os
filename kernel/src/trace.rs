@@ -1,4 +1,4 @@
-use core::sync::atomic::{AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use crate::{pit, vga};
 
@@ -7,6 +7,8 @@ const TRACE_CAPACITY: usize = 32;
 static mut TRACE: [TraceEvent; TRACE_CAPACITY] = [TraceEvent::empty(); TRACE_CAPACITY];
 static NEXT: AtomicUsize = AtomicUsize::new(0);
 static LEN: AtomicUsize = AtomicUsize::new(0);
+static ENABLED: AtomicBool = AtomicBool::new(true);
+static SKIPPED: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum TraceKind {
@@ -59,9 +61,16 @@ impl TraceEvent {
 pub fn init() {
     NEXT.store(0, Ordering::Relaxed);
     LEN.store(0, Ordering::Relaxed);
+    ENABLED.store(true, Ordering::Relaxed);
+    SKIPPED.store(0, Ordering::Relaxed);
 }
 
 pub fn record(kind: TraceKind, value: u64, label: &str) {
+    if !ENABLED.load(Ordering::Relaxed) {
+        SKIPPED.fetch_add(1, Ordering::Relaxed);
+        return;
+    }
+
     let idx = NEXT.fetch_add(1, Ordering::Relaxed) % TRACE_CAPACITY;
     let mut event = TraceEvent::empty();
     event.tick = pit::ticks();
@@ -81,6 +90,18 @@ pub fn record(kind: TraceKind, value: u64, label: &str) {
 
 pub fn len() -> usize {
     LEN.load(Ordering::Relaxed)
+}
+
+pub fn set_enabled(enabled: bool) {
+    ENABLED.store(enabled, Ordering::Relaxed);
+}
+
+pub fn is_enabled() -> bool {
+    ENABLED.load(Ordering::Relaxed)
+}
+
+pub fn skipped() -> usize {
+    SKIPPED.load(Ordering::Relaxed)
 }
 
 pub const fn capacity() -> usize {
