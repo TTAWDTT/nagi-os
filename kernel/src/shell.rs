@@ -4,6 +4,7 @@ use crate::{fs, keyboard, klog, mem, pit, serial, syscall, task, trace, ui, user
 
 const OUTPUT_START_ROW: usize = ui::OUTPUT_START_ROW;
 const OUTPUT_ROWS: usize = ui::OUTPUT_ROWS;
+const CONTENT_TEXT_COL: usize = ui::CONTENT_COL + 2;
 const COMMANDS: &[&str] = &[
     "h",
     "s",
@@ -85,13 +86,30 @@ const COMMANDS: &[&str] = &[
     "clear",
     "cls",
 ];
+const PAGE_HOME: usize = 0;
+const PAGE_HELP: usize = 1;
+const PAGE_STATUS: usize = 2;
+const PAGE_MEMORY: usize = 3;
+const PAGE_TASKS: usize = 4;
+const PAGE_FILES: usize = 5;
+const PAGE_TRACE: usize = 6;
+const PAGE_RUN: usize = 7;
+const PAGE_TOUR: usize = 8;
+const PAGE_DEMO: usize = 9;
+const PAGE_BENCH: usize = 10;
+const PAGE_EXPLAIN: usize = 11;
+const PAGE_DIAG: usize = 12;
+const PAGE_SHELL: usize = 13;
+
+static CURRENT_PAGE: AtomicUsize = AtomicUsize::new(PAGE_HOME);
 static TOUR_STEP: AtomicUsize = AtomicUsize::new(0);
 
 pub fn init() {
+    set_page(PAGE_HOME);
     clear_output();
-    write_output(0, "h help      s status     v overview");
-    write_output(2, "g guide     r programs   f files");
-    write_output(4, "Type a letter. Tab or Right accepts the hint.");
+    write_output(0, "Type a letter. Tab or Right accepts the ghost text.");
+    write_output(2, "Try h, s, m, p, t, g, r, f, d.");
+    write_output(4, "The left panel updates with matches and the current page.");
 }
 
 pub fn complete(input: &str) -> Option<&'static str> {
@@ -111,8 +129,47 @@ pub fn complete(input: &str) -> Option<&'static str> {
     None
 }
 
+pub fn sidebar_matches(input: &str, out: &mut [&'static str]) -> usize {
+    let prefix = trim(input);
+    if prefix.is_empty() {
+        return 0;
+    }
+
+    let mut count = 0;
+    let mut i = 0;
+    while i < COMMANDS.len() && count < out.len() {
+        let command = COMMANDS[i];
+        if command != prefix && starts_with(command, prefix) {
+            out[count] = command;
+            count += 1;
+        }
+        i += 1;
+    }
+    count
+}
+
+pub fn current_page() -> &'static str {
+    match CURRENT_PAGE.load(Ordering::Relaxed) {
+        PAGE_HELP => "help",
+        PAGE_STATUS => "status",
+        PAGE_MEMORY => "memory",
+        PAGE_TASKS => "tasks",
+        PAGE_FILES => "files",
+        PAGE_TRACE => "trace",
+        PAGE_RUN => "run",
+        PAGE_TOUR => "tour",
+        PAGE_DEMO => "demo",
+        PAGE_BENCH => "bench",
+        PAGE_EXPLAIN => "explain",
+        PAGE_DIAG => "diag",
+        PAGE_SHELL => "shell",
+        _ => "welcome",
+    }
+}
+
 pub fn run(command: &str) {
     let command = trim(command);
+    set_page(page_for_command(command));
     serial::write_str("shell command: ");
     serial::write_str(command);
     serial::write_str("\r\n");
@@ -202,6 +259,7 @@ pub fn run(command: &str) {
         "tour next" | "n" => show_tour("next"),
         "demo" | "d" => show_demo("overview"),
         "clear" | "cls" | "q" => {
+            set_page(PAGE_SHELL);
             clear_output();
         }
         _ => show_unknown(command),
@@ -209,6 +267,7 @@ pub fn run(command: &str) {
 }
 
 fn show_help() {
+    set_page(PAGE_HELP);
     clear_output();
     write_output(0, "quick keys");
     write_key_line(2, "h", "help       s status     v overview");
@@ -247,6 +306,7 @@ fn show_colors() {
 }
 
 fn show_help_topic(topic: &str) {
+    set_page(PAGE_HELP);
     clear_output();
     match topic {
         "obs" | "observe" => {
@@ -285,6 +345,7 @@ fn show_help_topic(topic: &str) {
 }
 
 fn show_ticks() {
+    set_page(PAGE_STATUS);
     clear_output();
     let mut line = [0u8; 80];
     let mut len = copy_bytes(&mut line, 0, b"pit ticks: ");
@@ -293,12 +354,14 @@ fn show_ticks() {
 }
 
 fn show_klog() {
+    set_page(PAGE_TRACE);
     clear_output();
     write_output(0, "early kernel log:");
     klog::dump_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1);
 }
 
 fn show_sysstat() {
+    set_page(PAGE_STATUS);
     clear_output();
     let ticks = pit::ticks();
     write_output(0, "Nagi OS system status:");
@@ -314,12 +377,14 @@ fn show_sysstat() {
 }
 
 fn show_trace() {
+    set_page(PAGE_TRACE);
     clear_output();
     write_output(0, "recent trace events:");
     trace::dump_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1);
 }
 
 fn show_trace_filtered(filter: &str) {
+    set_page(PAGE_TRACE);
     clear_output();
     let mut line = [0u8; 80];
     let mut len = copy_bytes(&mut line, 0, b"trace filter: ");
@@ -329,6 +394,7 @@ fn show_trace_filtered(filter: &str) {
 }
 
 fn show_trace_control(enabled: bool) {
+    set_page(PAGE_TRACE);
     trace::set_enabled(enabled);
     clear_output();
     if enabled {
@@ -343,6 +409,7 @@ fn show_trace_control(enabled: bool) {
 }
 
 fn show_trace_status() {
+    set_page(PAGE_TRACE);
     clear_output();
     if trace::is_enabled() {
         write_output(0, "trace recording: on");
@@ -355,12 +422,14 @@ fn show_trace_status() {
 }
 
 fn show_timeline() {
+    set_page(PAGE_TRACE);
     clear_output();
     write_output(0, "kernel event timeline:");
     trace::dump_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1);
 }
 
 fn show_bench(topic: &str) {
+    set_page(PAGE_BENCH);
     clear_output();
     match topic {
         "trace" => {
@@ -400,6 +469,7 @@ fn show_bench(topic: &str) {
 }
 
 fn show_explain(topic: &str) {
+    set_page(PAGE_EXPLAIN);
     clear_output();
     match topic {
         "irq" | "interrupt" => {
@@ -443,6 +513,7 @@ fn show_explain(topic: &str) {
 }
 
 fn show_tour(topic: &str) {
+    set_page(PAGE_TOUR);
     let topic = if topic == "next" {
         let step = (TOUR_STEP.fetch_add(1, Ordering::Relaxed) + 1) % 7;
         tour_topic(step)
@@ -532,6 +603,7 @@ fn tour_topic(step: usize) -> &'static str {
 }
 
 fn show_demo(topic: &str) {
+    set_page(PAGE_DEMO);
     clear_output();
     trace::record(trace::TraceKind::Demo, topic.len() as u64, topic);
     match topic {
@@ -603,6 +675,7 @@ fn show_demo(topic: &str) {
 }
 
 fn show_mem() {
+    set_page(PAGE_MEMORY);
     clear_output();
     let stats = mem::stats();
     write_output(0, "physical page allocator:");
@@ -617,6 +690,7 @@ fn show_mem() {
 }
 
 fn show_viz() {
+    set_page(PAGE_STATUS);
     clear_output();
     let memory = mem::stats();
     write_output(0, "overview");
@@ -630,6 +704,7 @@ fn show_viz() {
 }
 
 fn show_run(name: &str) {
+    set_page(PAGE_RUN);
     clear_output();
     if name == "overview" {
         write_output(0, "user programs:");
@@ -650,12 +725,14 @@ fn show_run(name: &str) {
 }
 
 fn show_ls() {
+    set_page(PAGE_FILES);
     clear_output();
     write_output(0, "RAMFS files:");
     fs::list_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1);
 }
 
 fn show_cat(name: &str) {
+    set_page(PAGE_FILES);
     clear_output();
     let mut line = [0u8; 80];
     let mut len = copy_bytes(&mut line, 0, b"cat ");
@@ -667,6 +744,7 @@ fn show_cat(name: &str) {
 }
 
 fn show_echo(text: &str) {
+    set_page(PAGE_FILES);
     clear_output();
     let content = strip_note_redirect(text);
     if fs::create_or_write("note", content) {
@@ -678,6 +756,7 @@ fn show_echo(text: &str) {
 }
 
 fn show_rm(name: &str) {
+    set_page(PAGE_FILES);
     clear_output();
     if fs::remove(name) {
         write_output(0, "removed RAMFS file");
@@ -687,12 +766,14 @@ fn show_rm(name: &str) {
 }
 
 fn show_ps() {
+    set_page(PAGE_TASKS);
     clear_output();
     write_output(0, "kernel tasks:");
     task::dump_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1);
 }
 
 fn show_sched() {
+    set_page(PAGE_TASKS);
     clear_output();
     write_output(0, "round-robin scheduler:");
     write_stat_line(1, "task count", task::count() as u64);
@@ -705,6 +786,7 @@ fn show_sched() {
 }
 
 fn show_syscall(mode: &str) {
+    set_page(PAGE_STATUS);
     clear_output();
     write_output(0, "syscall table:");
     syscall::dump_table_to_vga(OUTPUT_START_ROW + 1, 4);
@@ -728,6 +810,7 @@ fn show_syscall(mode: &str) {
 }
 
 fn show_unknown(command: &str) {
+    set_page(PAGE_SHELL);
     clear_output();
     let mut line = [0u8; 80];
     let mut len = copy_bytes(&mut line, 0, b"unknown command: ");
@@ -752,7 +835,7 @@ fn write_output(offset: usize, text: &str) {
     } else {
         vga::make_color(vga::Color::LightGray, vga::Color::Black)
     };
-    vga::write_line(OUTPUT_START_ROW + offset, text, color);
+    vga::write_at(OUTPUT_START_ROW + offset, CONTENT_TEXT_COL, text, color);
 }
 
 fn write_key_line(offset: usize, key: &str, text: &str) {
@@ -761,9 +844,8 @@ fn write_key_line(offset: usize, key: &str, text: &str) {
     }
     let key_color = vga::make_color(vga::Color::LightGreen, vga::Color::Black);
     let text_color = vga::make_color(vga::Color::LightGray, vga::Color::Black);
-    vga::write_line(OUTPUT_START_ROW + offset, "", text_color);
-    vga::write_at(OUTPUT_START_ROW + offset, 2, key, key_color);
-    vga::write_at(OUTPUT_START_ROW + offset, 5, text, text_color);
+    vga::write_at(OUTPUT_START_ROW + offset, CONTENT_TEXT_COL, key, key_color);
+    vga::write_at(OUTPUT_START_ROW + offset, CONTENT_TEXT_COL + 4, text, text_color);
 }
 
 fn write_color_sample(offset: usize, col: usize, text: &str, fg: vga::Color) {
@@ -771,7 +853,7 @@ fn write_color_sample(offset: usize, col: usize, text: &str, fg: vga::Color) {
         return;
     }
     let color = vga::make_color(fg, vga::Color::Black);
-    vga::write_at(OUTPUT_START_ROW + offset, col, text, color);
+    vga::write_at(OUTPUT_START_ROW + offset, CONTENT_TEXT_COL + col, text, color);
 }
 
 fn write_stat_line(offset: usize, label: &str, value: u64) {
@@ -917,4 +999,28 @@ fn append_u64(buf: &mut [u8], idx: usize, mut value: u64) -> usize {
 
 fn as_str(bytes: &[u8]) -> &str {
     unsafe { core::str::from_utf8_unchecked(bytes) }
+}
+
+fn set_page(page: usize) {
+    CURRENT_PAGE.store(page, Ordering::Relaxed);
+}
+
+fn page_for_command(command: &str) -> usize {
+    match command {
+        "" => PAGE_HOME,
+        "help" | "?" | "h" | "help obs" | "help fs" | "help demo" => PAGE_HELP,
+        "status" | "sysstat" | "s" | "ticks" | "viz" => PAGE_STATUS,
+        "mem" | "m" => PAGE_MEMORY,
+        "ps" | "p" | "sched" => PAGE_TASKS,
+        "files" | "f" | "ls" | "cat readme" | "cat note" | "cat demo" | "cat userlog" | "echo hello > note" | "rm note" => PAGE_FILES,
+        "trace" | "trace irq" | "trace sched" | "trace mem" | "trace syscall" | "trace file" | "trace demo" | "trace on" | "trace off" | "trace status" | "timeline" | "t" => PAGE_TRACE,
+        "run" | "programs" | "r" | "run hello" | "run time" | "run trace" | "run files" => PAGE_RUN,
+        "tour" | "guide" | "g" | "tour next" | "tour boot" | "tour mem" | "tour sched" | "tour syscall" | "tour fs" | "tour observe" | "tour demo" => PAGE_TOUR,
+        "demo" | "d" | "demo sched" | "demo fs" | "demo syscall" | "demo trace" => PAGE_DEMO,
+        "bench trace" | "bench" | "b" => PAGE_BENCH,
+        "explain" | "explain irq" | "explain sched" | "explain mem" | "explain syscall" => PAGE_EXPLAIN,
+        "colors" => PAGE_DIAG,
+        "clear" | "cls" | "q" => PAGE_SHELL,
+        _ => PAGE_SHELL,
+    }
 }

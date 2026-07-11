@@ -190,11 +190,10 @@ fn handle_key(key: Key) {
 fn redraw() {
     unsafe {
         let input = as_str(&INPUT[..INPUT_LEN]);
-        let suggestion = if INPUT_CURSOR == INPUT_LEN {
-            shell::complete(input)
-        } else {
-            None
-        };
+        let suggestion = if INPUT_CURSOR == INPUT_LEN { shell::complete(input) } else { None };
+        let mut matches = [&""[..]; 4];
+        let match_count = shell::sidebar_matches(input, &mut matches);
+        ui::draw_sidebar(shell::current_page(), input, &matches[..match_count]);
         ui::draw_prompt(input, suggestion, INPUT_CURSOR, INPUT_LEN >= INPUT_CAPACITY);
     }
 }

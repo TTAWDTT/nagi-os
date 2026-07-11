@@ -1,5 +1,9 @@
 use crate::{pit, trace, vga};
 
+pub const SIDEBAR_COL: usize = 2;
+pub const SIDEBAR_WIDTH: usize = 18;
+pub const CONTENT_COL: usize = 24;
+pub const CONTENT_WIDTH: usize = 56;
 pub const PROMPT_ROW: usize = 13;
 pub const OUTPUT_TITLE_ROW: usize = 14;
 pub const OUTPUT_START_ROW: usize = 15;
@@ -9,6 +13,7 @@ const FOOTER_ROW: usize = 24;
 pub fn draw_desktop() {
     vga::clear_screen();
     draw_header();
+    draw_sidebar("welcome", "", &[]);
     draw_footer("ready");
     draw_output_title("welcome");
 }
@@ -20,18 +25,62 @@ pub fn draw_header() {
     vga::write_line(0, "", muted);
     vga::write_at(0, 2, "Nagi OS", title);
     vga::write_at(0, 12, "quiet observable kernel", muted);
-    vga::write_at(0, 61, "h", title);
-    vga::write_at(0, 63, "help", muted);
-    vga::write_at(0, 69, "g", title);
-    vga::write_at(0, 71, "guide", muted);
+    vga::write_at(0, 63, "workspace", muted);
     vga::write_line(1, "", muted);
     vga::write_at(1, 2, "Tab/Right", title);
-    vga::write_at(1, 12, "complete    ", muted);
+    vga::write_at(1, 12, "complete", muted);
     vga::write_at(1, 24, "Left/Right", title);
-    vga::write_at(1, 35, "move    ", muted);
+    vga::write_at(1, 35, "move", muted);
     vga::write_at(1, 43, "F1/Up", title);
-    vga::write_at(1, 49, "recall    Esc clears", muted);
+    vga::write_at(1, 49, "recall", muted);
+    vga::write_at(1, 58, "Esc", title);
+    vga::write_at(1, 62, "clear", muted);
     vga::write_line(2, "", muted);
+    vga::write_at(2, 22, "|", muted);
+}
+
+pub fn draw_sidebar(page: &str, input: &str, matches: &[&str]) {
+    let panel = vga::make_color(vga::Color::LightGray, vga::Color::Black);
+    let muted = vga::make_color(vga::Color::DarkGray, vga::Color::Black);
+    let accent = vga::make_color(vga::Color::LightCyan, vga::Color::Black);
+    let soft = vga::make_color(vga::Color::LightBlue, vga::Color::Black);
+    let active = vga::make_color(vga::Color::LightGreen, vga::Color::Black);
+
+    clear_left_panel(panel);
+    write_left(3, 2, "command panel", accent);
+    write_left(4, 2, "page:", muted);
+    write_left(4, 8, page, active);
+    write_left(5, 2, "filter:", muted);
+    if input.is_empty() {
+        write_left(5, 10, "type letters", soft);
+    } else {
+        write_left(5, 10, input, soft);
+    }
+
+    write_left(7, 2, "h help", panel);
+    write_left(7, 12, "s status", panel);
+    write_left(8, 2, "m memory", panel);
+    write_left(8, 12, "p tasks", panel);
+    write_left(9, 2, "t timeline", panel);
+    write_left(9, 12, "g guide", panel);
+    write_left(10, 2, "r run", panel);
+    write_left(10, 12, "f files", panel);
+
+    write_left(12, 2, "matches", accent);
+    if matches.is_empty() {
+        write_left(13, 2, "Tab/Right accepts", muted);
+    } else {
+        let mut row = 13;
+        let mut i = 0;
+        while i < matches.len() && row <= 15 {
+            let color = if i == 0 { active } else { panel };
+            write_left(row, 2, matches[i], color);
+            row += 1;
+            i += 1;
+        }
+    }
+
+    vga::write_at(23, 2, "Enter runs", muted);
 }
 
 pub fn draw_boot_line(row: usize, label: &str, text: &str) {
@@ -50,8 +99,9 @@ pub fn draw_boot_line(row: usize, label: &str, text: &str) {
 pub fn draw_output_title(title: &str) {
     let color = vga::make_color(vga::Color::DarkGray, vga::Color::Black);
     let accent = vga::make_color(vga::Color::LightCyan, vga::Color::Black);
-    vga::write_line(OUTPUT_TITLE_ROW, "", color);
-    vga::write_at(OUTPUT_TITLE_ROW, 2, title, accent);
+    clear_right_panel(color);
+    vga::write_at(OUTPUT_TITLE_ROW, CONTENT_COL, title, accent);
+    vga::write_at(OUTPUT_TITLE_ROW, CONTENT_COL + title.len() + 1, "---------------------------", color);
 }
 
 pub fn clear_output(title: &str) {
@@ -59,7 +109,7 @@ pub fn clear_output(title: &str) {
     let color = vga::make_color(vga::Color::LightGray, vga::Color::Black);
     let mut row = 0;
     while row < OUTPUT_ROWS {
-        vga::write_line(OUTPUT_START_ROW + row, "", color);
+        clear_right_row(OUTPUT_START_ROW + row, color);
         row += 1;
     }
 }
@@ -86,27 +136,67 @@ pub fn draw_prompt(input: &str, suggestion: Option<&str>, cursor: usize, full: b
     let ghost = vga::make_color(vga::Color::LightGray, vga::Color::Black);
     let warn = vga::make_color(vga::Color::Yellow, vga::Color::Black);
 
-    vga::write_line(PROMPT_ROW, "", base);
-    vga::write_at(PROMPT_ROW, 2, ">", prompt);
-    vga::write_at(PROMPT_ROW, 4, input, input_color);
+    clear_right_row(PROMPT_ROW, base);
+    vga::write_at(PROMPT_ROW, CONTENT_COL, ">", prompt);
+    vga::write_at(PROMPT_ROW, CONTENT_COL + 2, input, input_color);
     if let Some(candidate) = suggestion {
         if cursor == input.len() && starts_with(candidate, input) && candidate.len() > input.len() {
-            vga::write_at(PROMPT_ROW, 4 + input.len(), tail(candidate, input.len()), ghost);
+            vga::write_at(PROMPT_ROW, CONTENT_COL + 2 + input.len(), tail(candidate, input.len()), ghost);
         }
     }
-    let cursor_col = 4 + cursor;
+    let cursor_col = CONTENT_COL + 2 + cursor;
 
     if cursor_col < 80 {
         vga::set_cursor(PROMPT_ROW, cursor_col);
     }
 
     if full {
-        vga::write_at(PROMPT_ROW, 70, "full", warn);
+        vga::write_at(PROMPT_ROW, 72, "full", warn);
     }
+}
+
+fn clear_left_panel(color: u8) {
+    let mut row = 3;
+    while row < 24 {
+        let mut col = 0;
+        while col < SIDEBAR_WIDTH + SIDEBAR_COL {
+            vga::write_at(row, col, " ", color);
+            col += 1;
+        }
+        vga::write_at(row, 22, "|", color);
+        row += 1;
+    }
+}
+
+fn clear_right_panel(color: u8) {
+    let mut row = OUTPUT_TITLE_ROW;
+    while row <= 23 {
+        clear_right_row(row, color);
+        row += 1;
+    }
+}
+
+fn clear_right_row(row: usize, color: u8) {
+    let mut col = CONTENT_COL;
+    while col < CONTENT_COL + CONTENT_WIDTH {
+        vga::write_at(row, col, " ", color);
+        col += 1;
+    }
+}
+
+fn write_left(row: usize, col: usize, text: &str, color: u8) {
+    let text = clip(text, SIDEBAR_WIDTH.saturating_sub(col));
+    vga::write_at(row, col, text, color);
 }
 
 fn tail(text: &str, start: usize) -> &str {
     unsafe { core::str::from_utf8_unchecked(&text.as_bytes()[start..]) }
+}
+
+fn clip(text: &str, width: usize) -> &str {
+    let bytes = text.as_bytes();
+    let len = core::cmp::min(bytes.len(), width);
+    unsafe { core::str::from_utf8_unchecked(&bytes[..len]) }
 }
 
 fn starts_with(text: &str, prefix: &str) -> bool {
