@@ -9,6 +9,7 @@ pub const OUTPUT_TITLE_ROW: usize = 14;
 pub const OUTPUT_START_ROW: usize = 15;
 pub const OUTPUT_ROWS: usize = 9;
 const FOOTER_ROW: usize = 24;
+const LOGO_COL: usize = 60;
 
 pub fn draw_desktop() {
     vga::clear_screen();
@@ -25,7 +26,7 @@ pub fn draw_header() {
     vga::write_line(0, "", muted);
     vga::write_at(0, 2, "Nagi OS", title);
     vga::write_at(0, 12, "quiet observable kernel", muted);
-    vga::write_at(0, 63, "workspace", muted);
+    draw_logo_frame(0);
     vga::write_line(1, "", muted);
     vga::write_at(1, 2, "Tab/Right", title);
     vga::write_at(1, 12, "complete", muted);
@@ -37,6 +38,13 @@ pub fn draw_header() {
     vga::write_at(1, 62, "clear", muted);
     vga::write_line(2, "", muted);
     vga::write_at(2, 22, "|", muted);
+}
+
+pub fn animate_logo(tick: u64) {
+    if tick % 8 != 0 {
+        return;
+    }
+    draw_logo_frame((tick / 8) as usize);
 }
 
 pub fn draw_sidebar(page: &str, input: &str, matches: &[&str]) {
@@ -129,6 +137,17 @@ pub fn draw_footer(status: &str) {
     vga::write_at(FOOTER_ROW, 59, "Enter to run", color);
 }
 
+pub fn draw_logo_card() {
+    let accent = vga::make_color(vga::Color::LightCyan, vga::Color::Black);
+    let muted = vga::make_color(vga::Color::DarkGray, vga::Color::Black);
+    let soft = vga::make_color(vga::Color::LightBlue, vga::Color::Black);
+
+    vga::write_at(OUTPUT_START_ROW + 1, content_text_col(), "N  A  G  I", accent);
+    vga::write_at(OUTPUT_START_ROW + 2, content_text_col(), "     ~~~     ~", soft);
+    vga::write_at(OUTPUT_START_ROW + 3, content_text_col(), "calm kernel, observable motion", muted);
+    vga::write_at(OUTPUT_START_ROW + 5, content_text_col(), "The top-right mark is driven by PIT ticks.", muted);
+}
+
 pub fn draw_prompt(input: &str, suggestion: Option<&str>, cursor: usize, full: bool) {
     let base = vga::make_color(vga::Color::LightGray, vga::Color::Black);
     let input_color = vga::make_color(vga::Color::LightBlue, vga::Color::Black);
@@ -166,6 +185,28 @@ fn clear_left_panel(color: u8) {
         vga::write_at(row, 22, "|", color);
         row += 1;
     }
+}
+
+fn draw_logo_frame(frame: usize) {
+    let accent = vga::make_color(vga::Color::LightCyan, vga::Color::Black);
+    let wind_color = vga::make_color(vga::Color::LightBlue, vga::Color::Black);
+    let wind = match frame % 8 {
+        0 => "~      ",
+        1 => "~~     ",
+        2 => "~~~    ",
+        3 => " ~~~   ",
+        4 => "  ~~~  ",
+        5 => "   ~~~ ",
+        6 => "    ~~ ",
+        _ => "     ~ ",
+    };
+
+    vga::write_at(0, LOGO_COL, "NAGI", accent);
+    vga::write_at(0, LOGO_COL + 5, wind, wind_color);
+}
+
+const fn content_text_col() -> usize {
+    CONTENT_COL + 2
 }
 
 fn clear_right_panel(color: u8) {

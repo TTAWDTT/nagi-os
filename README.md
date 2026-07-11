@@ -41,6 +41,7 @@
 - `bench trace` 可观测性开销演示
 - `demo` 一键式课程答辩演示入口
 - 轻量顶部提示、底部状态、输出区标题、输入光标
+- 顶部动态 `NAGI` 风纹标识，由 PIT tick 驱动
 - F1 / 上方向键召回上一条命令
 - 左右方向键移动输入光标，Home / End 跳到行首 / 行尾
 - Delete 删除光标后的字符，Backspace 删除光标前的字符
@@ -136,6 +137,7 @@ d                 demo 的一键入口
 demo sched        触发/说明调度演示
 demo fs           创建演示文件
 demo syscall      触发系统调用演示
+logo              查看 Nagi 动态标识说明
 clear / cls       清空输出区
 q                 clear 的一键入口
 ```

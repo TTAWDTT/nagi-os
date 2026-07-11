@@ -83,6 +83,7 @@ const COMMANDS: &[&str] = &[
     "demo trace",
     "bench trace",
     "colors",
+    "logo",
     "clear",
     "cls",
 ];
@@ -100,6 +101,7 @@ const PAGE_BENCH: usize = 10;
 const PAGE_EXPLAIN: usize = 11;
 const PAGE_DIAG: usize = 12;
 const PAGE_SHELL: usize = 13;
+const PAGE_LOGO: usize = 14;
 
 static CURRENT_PAGE: AtomicUsize = AtomicUsize::new(PAGE_HOME);
 static TOUR_STEP: AtomicUsize = AtomicUsize::new(0);
@@ -163,6 +165,7 @@ pub fn current_page() -> &'static str {
         PAGE_EXPLAIN => "explain",
         PAGE_DIAG => "diag",
         PAGE_SHELL => "shell",
+        PAGE_LOGO => "logo",
         _ => "welcome",
     }
 }
@@ -252,6 +255,7 @@ pub fn run(command: &str) {
         "bench" => show_bench("overview"),
         "bench trace" | "b" => show_bench("trace"),
         "colors" => show_colors(),
+        "logo" => show_logo(),
         "run" | "programs" | "r" => show_run("overview"),
         "timeline" | "t" => show_timeline(),
         "explain" => show_explain("overview"),
@@ -279,6 +283,7 @@ fn show_help() {
 }
 
 fn show_colors() {
+    set_page(PAGE_DIAG);
     clear_output();
     write_output(0, "VGA palette check:");
 
@@ -303,6 +308,14 @@ fn show_colors() {
     write_color_sample(7, 62, "15 white", vga::Color::White);
 
     write_output(8, "If gray looks wrong in curses, run with -Display vnc.");
+}
+
+fn show_logo() {
+    set_page(PAGE_LOGO);
+    clear_output();
+    write_output(0, "Nagi motion mark");
+    ui::draw_logo_card();
+    write_output(7, "next: s status, g guide, d demo");
 }
 
 fn show_help_topic(topic: &str) {
@@ -1020,6 +1033,7 @@ fn page_for_command(command: &str) -> usize {
         "bench trace" | "bench" | "b" => PAGE_BENCH,
         "explain" | "explain irq" | "explain sched" | "explain mem" | "explain syscall" => PAGE_EXPLAIN,
         "colors" => PAGE_DIAG,
+        "logo" => PAGE_LOGO,
         "clear" | "cls" | "q" => PAGE_SHELL,
         _ => PAGE_SHELL,
     }
