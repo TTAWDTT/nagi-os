@@ -159,13 +159,17 @@ fn handle_key(key: Key) {
                 trace::record(trace::TraceKind::Keyboard, 0, "clear-input");
             }
             Key::MoveLeft => {
-                if INPUT_CURSOR > 0 {
+                if INPUT_LEN == 0 && shell::presentation_active() {
+                    shell::presentation_navigate(false);
+                } else if INPUT_CURSOR > 0 {
                     INPUT_CURSOR -= 1;
                     trace::record(trace::TraceKind::Keyboard, INPUT_CURSOR as u64, "left");
                 }
             }
             Key::MoveRight => {
-                if INPUT_CURSOR < INPUT_LEN {
+                if INPUT_LEN == 0 && shell::presentation_active() {
+                    shell::presentation_navigate(true);
+                } else if INPUT_CURSOR < INPUT_LEN {
                     INPUT_CURSOR += 1;
                     trace::record(trace::TraceKind::Keyboard, INPUT_CURSOR as u64, "right");
                 } else {

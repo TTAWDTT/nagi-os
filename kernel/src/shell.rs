@@ -1,4 +1,4 @@
-use core::sync::atomic::{AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use crate::{fs, keyboard, klog, mem, pit, serial, syscall, task, trace, ui, user, vga};
 
@@ -84,6 +84,16 @@ const COMMANDS: &[&str] = &[
     "bench trace",
     "colors",
     "logo",
+    "present",
+    "present cover",
+    "present boot",
+    "present irq",
+    "present mem",
+    "present sched",
+    "present syscall",
+    "present fs",
+    "present observe",
+    "present summary",
     "clear",
     "cls",
 ];
@@ -102,9 +112,12 @@ const PAGE_EXPLAIN: usize = 11;
 const PAGE_DIAG: usize = 12;
 const PAGE_SHELL: usize = 13;
 const PAGE_LOGO: usize = 14;
+const PAGE_PRESENT: usize = 15;
 
 static CURRENT_PAGE: AtomicUsize = AtomicUsize::new(PAGE_HOME);
 static TOUR_STEP: AtomicUsize = AtomicUsize::new(0);
+static PRESENT_STEP: AtomicUsize = AtomicUsize::new(0);
+static PRESENT_ACTIVE: AtomicBool = AtomicBool::new(false);
 
 pub fn init() {
     set_page(PAGE_HOME);
@@ -166,12 +179,24 @@ pub fn current_page() -> &'static str {
         PAGE_DIAG => "diag",
         PAGE_SHELL => "shell",
         PAGE_LOGO => "logo",
+        PAGE_PRESENT => "present",
         _ => "welcome",
     }
 }
 
 pub fn run(command: &str) {
     let command = trim(command);
+    if presentation_active() && command == "n" {
+        show_present("next");
+        return;
+    }
+    if presentation_active() && command == "b" {
+        show_present("prev");
+        return;
+    }
+    if !starts_with(command, "present") {
+        PRESENT_ACTIVE.store(false, Ordering::Relaxed);
+    }
     set_page(page_for_command(command));
     serial::write_str("shell command: ");
     serial::write_str(command);
@@ -222,6 +247,10 @@ pub fn run(command: &str) {
         show_demo(topic);
         return;
     }
+    if let Some(topic) = command_arg(command, "present") {
+        show_present(topic);
+        return;
+    }
     if let Some(name) = command_arg(command, "cat") {
         show_cat(name);
         return;
@@ -256,6 +285,7 @@ pub fn run(command: &str) {
         "bench trace" | "b" => show_bench("trace"),
         "colors" => show_colors(),
         "logo" => show_logo(),
+        "present" => show_present("cover"),
         "run" | "programs" | "r" => show_run("overview"),
         "timeline" | "t" => show_timeline(),
         "explain" => show_explain("overview"),
@@ -268,6 +298,91 @@ pub fn run(command: &str) {
         }
         _ => show_unknown(command),
     }
+}
+
+pub fn presentation_active() -> bool {
+    PRESENT_ACTIVE.load(Ordering::Relaxed)
+}
+
+pub fn presentation_navigate(forward: bool) {
+    if presentation_active() {
+        show_present(if forward { "next" } else { "prev" });
+    }
+}
+
+fn show_present(topic: &str) {
+    const PAGE_COUNT: usize = 9;
+    let step = match topic {
+        "next" => core::cmp::min(PRESENT_STEP.load(Ordering::Relaxed) + 1, PAGE_COUNT - 1),
+        "prev" | "back" => PRESENT_STEP.load(Ordering::Relaxed).saturating_sub(1),
+        "cover" => 0,
+        "boot" => 1,
+        "irq" => 2,
+        "mem" | "memory" => 3,
+        "sched" | "scheduler" => 4,
+        "syscall" | "sys" => 5,
+        "fs" | "file" => 6,
+        "observe" | "obs" => 7,
+        "summary" => 8,
+        _ => 0,
+    };
+    PRESENT_STEP.store(step, Ordering::Relaxed);
+    PRESENT_ACTIVE.store(true, Ordering::Relaxed);
+    set_page(PAGE_PRESENT);
+    clear_output();
+    trace::record(trace::TraceKind::Demo, step as u64, "present");
+
+    match step {
+        0 => present_page("NAGI OS", "Rust x86_64 kernel from boot sector to shell",
+            "run present and follow a live kernel story",
+            "calm interface makes invisible kernel motion visible"),
+        1 => present_page("BOOT PATH", "stage1 + stage2 enter 64-bit long mode",
+            "klog / trace boot",
+            "hand-built boot chain reaches a no_std Rust kernel"),
+        2 => present_page("INTERRUPTS", "IDT, PIC, PIT 100 Hz, keyboard IRQ1",
+            "status / timeline / flow irq",
+            "hardware events become readable evidence"),
+        3 => present_page("MEMORY", "4 KiB page pool with ownership tracking",
+            "mem / mem map / mem demo",
+            "allocation state is visual, inspectable, reproducible"),
+        4 => present_page("SCHEDULER", "round-robin task model and state transitions",
+            "ps / sched / trace sched",
+            "runtime behavior is taught through live state"),
+        5 => present_page("SYSCALL", "write, time, trace, stats dispatch table",
+            "syscall / flow syscall / syscall stats",
+            "user intent is traceable across the kernel boundary"),
+        6 => present_page("RAMFS", "create, read, update, remove memory files",
+            "files / cat readme / flow file",
+            "file metadata links storage to physical pages"),
+        7 => present_page("OBSERVABILITY", "trace, timeline, watch, replay, why",
+            "watch / timeline / replay",
+            "the OS explains itself from its own runtime data"),
+        _ => present_page("SUMMARY", "boot + IRQ + memory + tasks + syscall + FS",
+            "demo / present cover",
+            "a cohesive teaching OS, not disconnected demos"),
+    }
+
+    let mut progress = [0u8; 40];
+    let mut len = copy_bytes(&mut progress, 0, b"page ");
+    len = append_u64(&mut progress, len, (step + 1) as u64);
+    len = copy_bytes(&mut progress, len, b"/9  ");
+    if step > 0 {
+        len = copy_bytes(&mut progress, len, b"b/Left back  ");
+    }
+    if step + 1 < PAGE_COUNT {
+        len = copy_bytes(&mut progress, len, b"n/Right next");
+    } else {
+        len = copy_bytes(&mut progress, len, b"present cover");
+    }
+    write_output(8, as_str(&progress[..len]));
+    ui::draw_footer("defense / present");
+}
+
+fn present_page(title: &str, implemented: &str, observe: &str, innovation: &str) {
+    write_output(0, title);
+    write_key_line(2, "OK", implemented);
+    write_key_line(4, "SEE", observe);
+    write_key_line(6, "NEW", innovation);
 }
 
 fn show_help() {

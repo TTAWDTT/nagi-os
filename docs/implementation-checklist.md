@@ -5,13 +5,13 @@ Each numbered section is completed, verified, and committed separately.
 
 ## 1. Presentation Mode
 
-- [ ] Add a `present` command that opens a fixed defense-oriented story.
-- [ ] Add pages for cover, boot, IRQ, memory, scheduler, syscall, RAMFS,
+- [x] Add a `present` command that opens a fixed defense-oriented story.
+- [x] Add pages for cover, boot, IRQ, memory, scheduler, syscall, RAMFS,
       observability, and summary.
-- [ ] Support `n`/Right for next and `b`/Left for previous while presenting.
-- [ ] Give every page three explicit fields: implemented, observe, innovation.
-- [ ] Show page progress and the next available action.
-- [ ] Preserve `tour` as a free-form teaching guide.
+- [x] Support `n`/Right for next and `b`/Left for previous while presenting.
+- [x] Give every page three explicit fields: implemented, observe, innovation.
+- [x] Show page progress and the next available action.
+- [x] Preserve `tour` as a free-form teaching guide.
 - Verification: `present`, repeated `n`, repeated `b`, `present summary`.
 
 ## 2. Unified Page System
@@ -108,4 +108,3 @@ Each numbered section is completed, verified, and committed separately.
 - [ ] Add `docs/implementation-summary.md` with completed work, architecture,
       validation, demo route, remaining limitations, and extension directions.
 - [ ] Commit the summary as the final implementation commit.
-
