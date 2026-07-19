@@ -12,10 +12,6 @@ pub fn init() {
     trace::record(trace::TraceKind::Demo, PROGRAM_COUNT as u64, "user-init");
 }
 
-pub fn count() -> usize {
-    PROGRAM_COUNT
-}
-
 pub fn run(name: &str) -> ProgramResult {
     trace::record(trace::TraceKind::Demo, name.len() as u64, "user-run");
     match name {

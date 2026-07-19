@@ -146,10 +146,6 @@ pub fn init() {
     write_output(4, "The left panel updates with matches and the current page.");
 }
 
-pub fn complete(input: &str) -> Option<&'static str> {
-    complete_at(input, 0)
-}
-
 pub fn complete_at(input: &str, selected: usize) -> Option<&'static str> {
     let prefix = trim(input);
     if prefix.is_empty() {
@@ -1003,6 +999,7 @@ fn show_mem() {
     write_stat_pair(4, "alloc / free calls", stats.allocations as u64, stats.frees as u64);
     write_stat_pair(5, "free runs / longest", stats.free_runs as u64, stats.longest_free_run as u64);
     ui::draw_progress(6, "utilization", stats.used_pages, stats.total_pages);
+    write_stat_pair(7, "page bytes / failures", stats.page_size as u64, stats.failed_allocations as u64);
     ui::draw_next("mem map / mem demo / trace mem");
 }
 
@@ -1352,30 +1349,6 @@ fn write_stat_pair(offset: usize, label: &str, used: u64, total: u64) {
     len = copy_bytes(&mut line, len, b"/");
     len = append_u64(&mut line, len, total);
     write_output(offset, as_str(&line[..len]));
-}
-
-fn write_memory_bar(offset: usize) {
-    let stats = mem::stats();
-    let mut line = [0u8; 80];
-    let mut len = copy_bytes(&mut line, 0, b"pages: [");
-    let cells = 16usize;
-    let mut i = 0;
-    while i < cells {
-        let page = i * stats.total_pages / cells;
-        let byte = if mem::is_used(page) { b'#' } else { b'.' };
-        len = copy_byte(&mut line, len, byte);
-        i += 1;
-    }
-    len = copy_bytes(&mut line, len, b"]");
-    write_output(offset, as_str(&line[..len]));
-}
-
-fn copy_byte(dst: &mut [u8], idx: usize, byte: u8) -> usize {
-    if idx >= dst.len() {
-        return idx;
-    }
-    dst[idx] = byte;
-    idx + 1
 }
 
 fn trim(text: &str) -> &str {

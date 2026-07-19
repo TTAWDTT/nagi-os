@@ -90,10 +90,6 @@ pub fn len() -> usize {
     unsafe { KLOG.len }
 }
 
-pub const fn capacity() -> usize {
-    LOG_CAPACITY
-}
-
 #[allow(dead_code)]
 pub fn dump_to_console() {
     unsafe {

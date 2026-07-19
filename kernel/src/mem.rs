@@ -68,10 +68,6 @@ pub fn init() {
     klog::record(klog::EventType::Memory, TOTAL_PAGES as u64, RESERVED_PAGES as u64, "page-pool");
 }
 
-pub fn alloc_page(label: &str) -> Option<usize> {
-    alloc_page_owned(PageOwner::Used, label)
-}
-
 pub fn alloc_page_owned(owner: PageOwner, label: &str) -> Option<usize> {
     unsafe {
         let mut i = RESERVED_PAGES;
@@ -161,11 +157,4 @@ fn free_run_stats() -> (usize, usize) {
         runs += 1;
     }
     (runs, longest)
-}
-
-pub fn is_used(page: usize) -> bool {
-    if page >= TOTAL_PAGES {
-        return false;
-    }
-    unsafe { PAGE_USED[page] }
 }
