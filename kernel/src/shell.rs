@@ -147,16 +147,24 @@ pub fn init() {
 }
 
 pub fn complete(input: &str) -> Option<&'static str> {
+    complete_at(input, 0)
+}
+
+pub fn complete_at(input: &str, selected: usize) -> Option<&'static str> {
     let prefix = trim(input);
     if prefix.is_empty() {
         return None;
     }
 
     let mut i = 0;
+    let mut matched = 0;
     while i < COMMANDS.len() {
         let command = COMMANDS[i];
         if command != prefix && starts_with(command, prefix) {
-            return Some(command);
+            if matched == selected {
+                return Some(command);
+            }
+            matched += 1;
         }
         i += 1;
     }
@@ -1228,9 +1236,65 @@ fn show_unknown(command: &str) {
     let mut len = copy_bytes(&mut line, 0, b"unknown command: ");
     len = copy_bytes(&mut line, len, command.as_bytes());
     write_output(0, as_str(&line[..len]));
-    write_output(1, "try: help, ?, status, files, programs");
-    write_output(2, "presentation: tour, demo, bench trace");
-    write_output(3, "observability: viz, timeline, trace irq");
+    if let Some(candidate) = closest_command(command) {
+        let mut suggestion = [0u8; 80];
+        let mut out = copy_bytes(&mut suggestion, 0, b"did you mean: ");
+        out = copy_bytes(&mut suggestion, out, candidate.as_bytes());
+        write_output(2, as_str(&suggestion[..out]));
+        ui::draw_next("type the suggestion / help for command index");
+    } else {
+        write_output(2, "try: help / status / present / watch");
+    }
+}
+
+fn closest_command(input: &str) -> Option<&'static str> {
+    if input.is_empty() {
+        return None;
+    }
+    let mut best = usize::MAX;
+    let mut candidate = None;
+    let mut i = 0;
+    while i < COMMANDS.len() {
+        let distance = edit_distance(input.as_bytes(), COMMANDS[i].as_bytes());
+        if distance < best {
+            best = distance;
+            candidate = Some(COMMANDS[i]);
+        }
+        i += 1;
+    }
+    if best <= 4 { candidate } else { None }
+}
+
+fn edit_distance(left: &[u8], right: &[u8]) -> usize {
+    let mut previous = [0usize; 64];
+    let mut current = [0usize; 64];
+    let right_len = core::cmp::min(right.len(), previous.len() - 1);
+    let mut j = 0;
+    while j <= right_len {
+        previous[j] = j;
+        j += 1;
+    }
+    let left_len = core::cmp::min(left.len(), current.len() - 1);
+    let mut i = 1;
+    while i <= left_len {
+        current[0] = i;
+        j = 1;
+        while j <= right_len {
+            let cost = if left[i - 1] == right[j - 1] { 0 } else { 1 };
+            current[j] = core::cmp::min(
+                core::cmp::min(current[j - 1] + 1, previous[j] + 1),
+                previous[j - 1] + cost,
+            );
+            j += 1;
+        }
+        let mut k = 0;
+        while k <= right_len {
+            previous[k] = current[k];
+            k += 1;
+        }
+        i += 1;
+    }
+    previous[right_len]
 }
 
 fn clear_output() {

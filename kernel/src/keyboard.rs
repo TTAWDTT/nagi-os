@@ -5,12 +5,19 @@ use crate::{port, serial, shell, trace, ui};
 const KEYBOARD_DATA_PORT: u16 = 0x60;
 const KEYBOARD_STATUS_PORT: u16 = 0x64;
 const INPUT_CAPACITY: usize = 62;
+const HISTORY_CAPACITY: usize = 8;
 
 static mut INPUT: [u8; INPUT_CAPACITY] = [0; INPUT_CAPACITY];
 static mut INPUT_LEN: usize = 0;
 static mut INPUT_CURSOR: usize = 0;
-static mut LAST_INPUT: [u8; INPUT_CAPACITY] = [0; INPUT_CAPACITY];
-static mut LAST_INPUT_LEN: usize = 0;
+static mut HISTORY: [[u8; INPUT_CAPACITY]; HISTORY_CAPACITY] = [[0; INPUT_CAPACITY]; HISTORY_CAPACITY];
+static mut HISTORY_LEN: [usize; HISTORY_CAPACITY] = [0; HISTORY_CAPACITY];
+static mut HISTORY_COUNT: usize = 0;
+static mut HISTORY_NEXT: usize = 0;
+static mut HISTORY_NAV: usize = 0;
+static mut DRAFT: [u8; INPUT_CAPACITY] = [0; INPUT_CAPACITY];
+static mut DRAFT_LEN: usize = 0;
+static mut CANDIDATE_INDEX: usize = 0;
 static mut SHIFT: bool = false;
 static mut EXTENDED: bool = false;
 static mut SEEN_KEY: bool = false;
@@ -77,6 +84,8 @@ enum Key {
     Delete,
     Enter,
     Recall,
+    HistoryPrev,
+    HistoryNext,
     Complete,
     Clear,
     MoveLeft,
@@ -94,6 +103,7 @@ fn handle_key(key: Key) {
 
         match key {
             Key::Char(byte) => {
+                begin_edit();
                 if INPUT_LEN < INPUT_CAPACITY {
                     let mut i = INPUT_LEN;
                     while i > INPUT_CURSOR {
@@ -108,6 +118,7 @@ fn handle_key(key: Key) {
                 }
             }
             Key::Backspace => {
+                begin_edit();
                 if INPUT_CURSOR > 0 {
                     let mut i = INPUT_CURSOR - 1;
                     while i + 1 < INPUT_LEN {
@@ -122,6 +133,7 @@ fn handle_key(key: Key) {
                 }
             }
             Key::Delete => {
+                begin_edit();
                 if INPUT_CURSOR < INPUT_LEN {
                     let mut i = INPUT_CURSOR;
                     while i + 1 < INPUT_LEN {
@@ -140,6 +152,7 @@ fn handle_key(key: Key) {
                 shell::run(as_str(&INPUT[..INPUT_LEN]));
                 INPUT_LEN = 0;
                 INPUT_CURSOR = 0;
+                CANDIDATE_INDEX = 0;
                 let mut i = 0;
                 while i < INPUT_CAPACITY {
                     INPUT[i] = 0;
@@ -147,8 +160,24 @@ fn handle_key(key: Key) {
                 }
             }
             Key::Recall => {
-                recall_last_input();
-                trace::record(trace::TraceKind::Keyboard, LAST_INPUT_LEN as u64, "recall");
+                history_latest();
+                trace::record(trace::TraceKind::Keyboard, INPUT_LEN as u64, "recall");
+            }
+            Key::HistoryPrev => {
+                if can_select_candidate() {
+                    select_candidate(false);
+                } else {
+                    history_previous();
+                }
+                trace::record(trace::TraceKind::Keyboard, INPUT_LEN as u64, "up");
+            }
+            Key::HistoryNext => {
+                if can_select_candidate() {
+                    select_candidate(true);
+                } else {
+                    history_next();
+                }
+                trace::record(trace::TraceKind::Keyboard, INPUT_LEN as u64, "down");
             }
             Key::Complete => {
                 complete_input();
@@ -194,10 +223,13 @@ fn handle_key(key: Key) {
 fn redraw() {
     unsafe {
         let input = as_str(&INPUT[..INPUT_LEN]);
-        let suggestion = if INPUT_CURSOR == INPUT_LEN { shell::complete(input) } else { None };
+        let suggestion = if INPUT_CURSOR == INPUT_LEN { shell::complete_at(input, CANDIDATE_INDEX) } else { None };
         let mut matches = [&""[..]; 4];
         let match_count = shell::sidebar_matches(input, &mut matches);
-        ui::draw_sidebar(shell::current_page(), input, &matches[..match_count]);
+        if CANDIDATE_INDEX >= match_count && match_count > 0 {
+            CANDIDATE_INDEX = match_count - 1;
+        }
+        ui::draw_sidebar(shell::current_page(), input, &matches[..match_count], CANDIDATE_INDEX);
         ui::draw_prompt(input, suggestion, INPUT_CURSOR, INPUT_LEN >= INPUT_CAPACITY);
     }
 }
@@ -205,7 +237,8 @@ fn redraw() {
 fn decode_scancode(scancode: u8, extended: bool) -> Option<Key> {
     if extended {
         return match scancode {
-            0x48 => Some(Key::Recall),
+            0x48 => Some(Key::HistoryPrev),
+            0x50 => Some(Key::HistoryNext),
             0x47 => Some(Key::Home),
             0x4B => Some(Key::MoveLeft),
             0x4D => Some(Key::MoveRight),
@@ -231,25 +264,137 @@ fn remember_input() {
         if INPUT_LEN == 0 {
             return;
         }
-        LAST_INPUT_LEN = INPUT_LEN;
+        let slot = HISTORY_NEXT;
+        HISTORY_LEN[slot] = INPUT_LEN;
         let mut i = 0;
         while i < INPUT_CAPACITY {
-            LAST_INPUT[i] = if i < INPUT_LEN { INPUT[i] } else { 0 };
+            HISTORY[slot][i] = if i < INPUT_LEN { INPUT[i] } else { 0 };
+            i += 1;
+        }
+        HISTORY_NEXT = (HISTORY_NEXT + 1) % HISTORY_CAPACITY;
+        if HISTORY_COUNT < HISTORY_CAPACITY {
+            HISTORY_COUNT += 1;
+        }
+        HISTORY_NAV = HISTORY_COUNT;
+        DRAFT_LEN = 0;
+    }
+}
+
+fn history_latest() {
+    unsafe {
+        HISTORY_NAV = HISTORY_COUNT;
+    }
+    history_previous();
+}
+
+fn history_previous() {
+    unsafe {
+        if HISTORY_COUNT == 0 {
+            return;
+        }
+        if HISTORY_NAV > HISTORY_COUNT {
+            HISTORY_NAV = HISTORY_COUNT;
+        }
+        if HISTORY_NAV == HISTORY_COUNT {
+            save_draft();
+        }
+        if HISTORY_NAV > 0 {
+            HISTORY_NAV -= 1;
+        }
+        load_history(HISTORY_NAV);
+        CANDIDATE_INDEX = 0;
+    }
+}
+
+fn history_next() {
+    unsafe {
+        if HISTORY_NAV >= HISTORY_COUNT {
+            return;
+        }
+        HISTORY_NAV += 1;
+        if HISTORY_NAV == HISTORY_COUNT {
+            load_draft();
+        } else {
+            load_history(HISTORY_NAV);
+        }
+        CANDIDATE_INDEX = 0;
+    }
+}
+
+fn history_slot(logical: usize) -> usize {
+    unsafe {
+        let start = if HISTORY_COUNT < HISTORY_CAPACITY { 0 } else { HISTORY_NEXT };
+        (start + logical) % HISTORY_CAPACITY
+    }
+}
+
+fn load_history(logical: usize) {
+    unsafe {
+        let slot = history_slot(logical);
+        INPUT_LEN = HISTORY_LEN[slot];
+        let mut i = 0;
+        while i < INPUT_CAPACITY {
+            INPUT[i] = HISTORY[slot][i];
+            i += 1;
+        }
+        INPUT_CURSOR = INPUT_LEN;
+    }
+}
+
+fn save_draft() {
+    unsafe {
+        DRAFT_LEN = INPUT_LEN;
+        let mut i = 0;
+        while i < INPUT_CAPACITY {
+            DRAFT[i] = INPUT[i];
             i += 1;
         }
     }
 }
 
-fn recall_last_input() {
+fn load_draft() {
     unsafe {
-        INPUT_LEN = LAST_INPUT_LEN;
-        INPUT_CURSOR = INPUT_LEN;
+        INPUT_LEN = DRAFT_LEN;
         let mut i = 0;
         while i < INPUT_CAPACITY {
-            INPUT[i] = LAST_INPUT[i];
+            INPUT[i] = DRAFT[i];
             i += 1;
         }
-        serial::write_str("[recall]\r\n");
+        INPUT_CURSOR = INPUT_LEN;
+    }
+}
+
+fn begin_edit() {
+    unsafe {
+        HISTORY_NAV = HISTORY_COUNT;
+        CANDIDATE_INDEX = 0;
+    }
+}
+
+fn can_select_candidate() -> bool {
+    unsafe {
+        if INPUT_LEN == 0 || HISTORY_NAV != HISTORY_COUNT {
+            return false;
+        }
+        let mut matches = [&""[..]; 4];
+        shell::sidebar_matches(as_str(&INPUT[..INPUT_LEN]), &mut matches) > 0
+    }
+}
+
+fn select_candidate(forward: bool) {
+    unsafe {
+        let mut matches = [&""[..]; 4];
+        let count = shell::sidebar_matches(as_str(&INPUT[..INPUT_LEN]), &mut matches);
+        if count == 0 {
+            return;
+        }
+        CANDIDATE_INDEX = if forward {
+            (CANDIDATE_INDEX + 1) % count
+        } else if CANDIDATE_INDEX == 0 {
+            count - 1
+        } else {
+            CANDIDATE_INDEX - 1
+        };
     }
 }
 
@@ -259,7 +404,7 @@ fn complete_input() {
             return;
         }
         let input = as_str(&INPUT[..INPUT_LEN]);
-        if let Some(candidate) = shell::complete(input) {
+        if let Some(candidate) = shell::complete_at(input, CANDIDATE_INDEX) {
             let bytes = candidate.as_bytes();
             INPUT_LEN = 0;
             let mut i = 0;
@@ -269,6 +414,7 @@ fn complete_input() {
                 i += 1;
             }
             INPUT_CURSOR = INPUT_LEN;
+            CANDIDATE_INDEX = 0;
             while i < INPUT_CAPACITY {
                 INPUT[i] = 0;
                 i += 1;
@@ -284,6 +430,8 @@ fn clear_input() {
     unsafe {
         INPUT_LEN = 0;
         INPUT_CURSOR = 0;
+        HISTORY_NAV = HISTORY_COUNT;
+        CANDIDATE_INDEX = 0;
         let mut i = 0;
         while i < INPUT_CAPACITY {
             INPUT[i] = 0;

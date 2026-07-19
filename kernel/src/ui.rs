@@ -14,7 +14,7 @@ const LOGO_COL: usize = 60;
 pub fn draw_desktop() {
     vga::clear_screen();
     draw_header();
-    draw_sidebar("welcome", "", &[]);
+    draw_sidebar("welcome", "", &[], 0);
     draw_footer("ready");
     draw_output_title("welcome");
 }
@@ -32,10 +32,10 @@ pub fn draw_header() {
     vga::write_at(1, 12, "complete", muted);
     vga::write_at(1, 24, "Left/Right", title);
     vga::write_at(1, 35, "move", muted);
-    vga::write_at(1, 43, "F1/Up", title);
-    vga::write_at(1, 49, "recall", muted);
-    vga::write_at(1, 58, "Esc", title);
-    vga::write_at(1, 62, "clear", muted);
+    vga::write_at(1, 43, "Up/Down", title);
+    vga::write_at(1, 51, "select", muted);
+    vga::write_at(1, 59, "F1", title);
+    vga::write_at(1, 63, "history", muted);
     vga::write_line(2, "", muted);
     vga::write_at(2, 22, "|", muted);
 }
@@ -47,7 +47,7 @@ pub fn animate_logo(tick: u64) {
     draw_logo_frame((tick / 8) as usize);
 }
 
-pub fn draw_sidebar(page: &str, input: &str, matches: &[&str]) {
+pub fn draw_sidebar(page: &str, input: &str, matches: &[&str], selected: usize) {
     let panel = vga::make_color(vga::Color::LightGray, vga::Color::Black);
     let muted = vga::make_color(vga::Color::DarkGray, vga::Color::Black);
     let accent = vga::make_color(vga::Color::LightCyan, vga::Color::Black);
@@ -81,7 +81,7 @@ pub fn draw_sidebar(page: &str, input: &str, matches: &[&str]) {
         let mut row = 13;
         let mut i = 0;
         while i < matches.len() && row <= 15 {
-            let color = if i == 0 { active } else { panel };
+            let color = if i == selected { active } else { panel };
             write_left(row, 2, matches[i], color);
             row += 1;
             i += 1;

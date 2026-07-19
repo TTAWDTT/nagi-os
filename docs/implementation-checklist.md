@@ -74,14 +74,14 @@ Each numbered section is completed, verified, and committed separately.
 
 ## 7. Shell Interaction Polish
 
-- [ ] Replace one-command recall with a multi-command history ring.
-- [ ] Support Up/Down history navigation without losing the draft command.
-- [ ] Support Up/Down completion candidate selection while filtering.
-- [ ] Keep Left/Right/Home/End/Delete/Backspace editing functional.
-- [ ] Let Tab/Right accept the selected inline completion.
-- [ ] Highlight the selected sidebar candidate.
-- [ ] Suggest the closest command for unknown input.
-- [ ] Make contextual shortcuts (`n`, `b`, arrows) work naturally in
+- [x] Replace one-command recall with a multi-command history ring.
+- [x] Support Up/Down history navigation without losing the draft command.
+- [x] Support Up/Down completion candidate selection while filtering.
+- [x] Keep Left/Right/Home/End/Delete/Backspace editing functional.
+- [x] Let Tab/Right accept the selected inline completion.
+- [x] Highlight the selected sidebar candidate.
+- [x] Suggest the closest command for unknown input.
+- [x] Make contextual shortcuts (`n`, `b`, arrows) work naturally in
       presentation mode.
 - Verification: exercise editing, history boundaries, completion selection,
   unknown command correction, and presentation navigation.
