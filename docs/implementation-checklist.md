@@ -40,12 +40,12 @@ Each numbered section is completed, verified, and committed separately.
 
 ## 4. Observable Kernel Stories
 
-- [ ] Upgrade `timeline` into a structured time / kind / event view.
-- [ ] Add `flow irq`, `flow syscall`, and `flow file` path diagrams.
-- [ ] Add `replay` to narrate recent trace events in chronological order.
-- [ ] Add `why` and topic variants that connect a visible metric to its cause.
-- [ ] Add clear empty and trace-disabled states.
-- [ ] Keep trace filters and overhead benchmark functional.
+- [x] Upgrade `timeline` into a structured time / kind / event view.
+- [x] Add `flow irq`, `flow syscall`, and `flow file` path diagrams.
+- [x] Add `replay` to narrate recent trace events in chronological order.
+- [x] Add `why` and topic variants that connect a visible metric to its cause.
+- [x] Add clear empty and trace-disabled states.
+- [x] Keep trace filters and overhead benchmark functional.
 - Verification: `timeline`, all `flow` variants, `replay`, `why`, `trace off`,
   `timeline`, `trace on`.
 

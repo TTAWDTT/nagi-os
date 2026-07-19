@@ -146,6 +146,76 @@ pub fn dump_filtered_to_vga(start_row: usize, col: usize, max_rows: usize, filte
     }
 }
 
+pub fn dump_timeline_to_vga(start_row: usize, col: usize, max_rows: usize) {
+    dump_story_to_vga(start_row, col, max_rows, false);
+}
+
+pub fn dump_replay_to_vga(start_row: usize, col: usize, max_rows: usize) {
+    dump_story_to_vga(start_row, col, max_rows, true);
+}
+
+fn dump_story_to_vga(start_row: usize, col: usize, max_rows: usize, replay: bool) {
+    let len = LEN.load(Ordering::Relaxed);
+    if len == 0 || max_rows == 0 {
+        return;
+    }
+    let next = NEXT.load(Ordering::Relaxed);
+    let ring_start = if len == TRACE_CAPACITY { next % TRACE_CAPACITY } else { 0 };
+    let take = core::cmp::min(len, max_rows);
+    let first = len - take;
+    let mut row = 0;
+    while row < take {
+        let idx = (ring_start + first + row) % TRACE_CAPACITY;
+        let event = unsafe { TRACE[idx] };
+        let mut line = [0u8; 80];
+        let mut out = 0;
+        if replay {
+            out = copy_bytes(&mut line, out, b"t+");
+            out = append_u64(&mut line, out, event.tick);
+            out = copy_bytes(&mut line, out, b"  ");
+            out = copy_bytes(&mut line, out, story_verb(event.kind).as_bytes());
+            out = copy_bytes(&mut line, out, b" ");
+            out = copy_bytes(&mut line, out, label_as_str(&event.label).as_bytes());
+        } else {
+            out = append_u64(&mut line, out, event.tick);
+            out = copy_bytes(&mut line, out, b" | ");
+            out = copy_bytes(&mut line, out, event.kind.as_str().as_bytes());
+            out = copy_bytes(&mut line, out, b" | ");
+            out = copy_bytes(&mut line, out, label_as_str(&event.label).as_bytes());
+            out = copy_bytes(&mut line, out, b" | ");
+            out = append_u64(&mut line, out, event.value);
+        }
+        vga::write_at(start_row + row, col, as_str(&line[..out]), kind_color(event.kind));
+        row += 1;
+    }
+}
+
+fn story_verb(kind: TraceKind) -> &'static str {
+    match kind {
+        TraceKind::Boot => "booted",
+        TraceKind::Timer => "timer fired:",
+        TraceKind::Keyboard => "input event:",
+        TraceKind::Shell => "shell ran:",
+        TraceKind::Memory => "page changed:",
+        TraceKind::Schedule => "task switched:",
+        TraceKind::Syscall => "syscall crossed:",
+        TraceKind::File => "file changed:",
+        TraceKind::Demo => "demo marked:",
+    }
+}
+
+fn kind_color(kind: TraceKind) -> u8 {
+    let fg = match kind {
+        TraceKind::Memory => vga::Color::LightBlue,
+        TraceKind::Schedule => vga::Color::LightGreen,
+        TraceKind::Syscall => vga::Color::LightCyan,
+        TraceKind::File => vga::Color::Yellow,
+        TraceKind::Timer | TraceKind::Keyboard => vga::Color::DarkGray,
+        _ => vga::Color::LightGray,
+    };
+    vga::make_color(fg, vga::Color::Black)
+}
+
 fn matches_filter(kind: TraceKind, filter: Option<&str>) -> bool {
     match filter {
         None => true,

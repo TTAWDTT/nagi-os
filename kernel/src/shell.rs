@@ -63,6 +63,17 @@ const COMMANDS: &[&str] = &[
     "trace off",
     "trace status",
     "timeline",
+    "replay",
+    "flow",
+    "flow irq",
+    "flow syscall",
+    "flow file",
+    "why",
+    "why irq",
+    "why mem",
+    "why sched",
+    "why syscall",
+    "why file",
     "explain",
     "explain irq",
     "explain sched",
@@ -253,6 +264,14 @@ pub fn run(command: &str) {
         show_demo(topic);
         return;
     }
+    if let Some(topic) = command_arg(command, "flow") {
+        show_flow(topic);
+        return;
+    }
+    if let Some(topic) = command_arg(command, "why") {
+        show_why(topic);
+        return;
+    }
     if let Some(topic) = command_arg(command, "present") {
         show_present(topic);
         return;
@@ -296,6 +315,9 @@ pub fn run(command: &str) {
         "present" => show_present("cover"),
         "run" | "programs" | "r" => show_run("overview"),
         "timeline" | "t" => show_timeline(),
+        "replay" => show_replay(),
+        "flow" => show_flow("overview"),
+        "why" => show_why("overview"),
         "explain" => show_explain("overview"),
         "tour" | "guide" | "g" => show_tour("overview"),
         "tour next" | "n" => show_tour("next"),
@@ -599,9 +621,108 @@ fn show_trace_status() {
 
 fn show_timeline() {
     set_page(PAGE_TRACE);
-    clear_output();
-    write_output(0, "kernel event timeline:");
-    trace::dump_to_vga(OUTPUT_START_ROW + 1, CONTENT_TEXT_COL, OUTPUT_ROWS - 1);
+    clear_page("EVENT TIMELINE");
+    if !trace::is_enabled() {
+        ui::draw_badge(0, "PAUSED", "showing events captured before trace off");
+    } else if trace::len() == 0 {
+        ui::draw_badge(0, "EMPTY", "run a command to create the first event");
+    } else {
+        ui::draw_badge(0, "LATEST", "recent events in chronological order");
+    }
+    ui::draw_table_header(1, "TICK   | KIND  | EVENT            | VALUE");
+    trace::dump_timeline_to_vga(OUTPUT_START_ROW + 2, CONTENT_TEXT_COL, OUTPUT_ROWS - 3);
+    ui::draw_next("replay / trace irq / flow syscall");
+}
+
+fn show_replay() {
+    set_page(PAGE_TRACE);
+    clear_page("TRACE REPLAY");
+    if trace::len() == 0 {
+        ui::draw_badge(0, "EMPTY", "nothing has been recorded yet");
+    } else {
+        ui::draw_badge(0, "STORY", "oldest to newest, recent window");
+        trace::dump_replay_to_vga(OUTPUT_START_ROW + 2, CONTENT_TEXT_COL, OUTPUT_ROWS - 3);
+    }
+    ui::draw_next("timeline for raw values / why for causes");
+}
+
+fn show_flow(topic: &str) {
+    set_page(PAGE_EXPLAIN);
+    clear_page("KERNEL FLOW");
+    match topic {
+        "irq" => {
+            ui::draw_badge(0, "IRQ", "hardware interrupt path");
+            write_output(2, "device -> IDT gate -> Rust IRQ handler");
+            write_output(4, "handler -> subsystem update -> trace event");
+            write_output(6, "handler -> PIC EOI -> interrupted code");
+            ui::draw_next("status / trace irq / why irq");
+        }
+        "syscall" | "sys" => {
+            ui::draw_badge(0, "SYSCALL", "user-to-kernel service path");
+            write_output(2, "user program -> syscall number + argument");
+            write_output(4, "dispatch table -> kernel service -> result");
+            write_output(6, "result -> stats + klog + trace -> user");
+            ui::draw_next("syscall / run hello / why syscall");
+        }
+        "file" | "fs" => {
+            ui::draw_badge(0, "RAMFS", "file operation path");
+            write_output(2, "shell/user -> RAMFS lookup -> file slot");
+            write_output(4, "write -> page owner + revision + content");
+            write_output(6, "operation -> FILE trace -> visible metadata");
+            ui::draw_next("files / demo fs / why file");
+        }
+        _ => {
+            ui::draw_badge(0, "CHOOSE", "inspect a kernel path");
+            write_key_line(2, "IRQ", "flow irq");
+            write_key_line(4, "SYS", "flow syscall");
+            write_key_line(6, "FILE", "flow file");
+            ui::draw_next("flow irq / flow syscall / flow file");
+        }
+    }
+}
+
+fn show_why(topic: &str) {
+    set_page(PAGE_EXPLAIN);
+    clear_page("WHY IS THIS CHANGING?");
+    match topic {
+        "irq" => {
+            ui::draw_badge(0, "CAUSE", "PIT hardware fires 100 times each second");
+            write_stat_pair(2, "timer / keyboard IRQ", pit::ticks(), keyboard::irq_count());
+            write_output(4, "timer advances tasks, watch, logo, and uptime");
+            ui::draw_next("flow irq / trace irq / watch");
+        }
+        "mem" | "memory" => {
+            let stats = mem::stats();
+            ui::draw_badge(0, "CAUSE", "kernel, tasks and files own physical pages");
+            write_stat_pair(2, "used / free", stats.used_pages as u64, stats.free_pages as u64);
+            write_output(4, "create/remove operations change page ownership");
+            ui::draw_next("mem map / mem demo / trace mem");
+        }
+        "sched" | "task" => {
+            ui::draw_badge(0, "CAUSE", "PIT reaches the round-robin interval");
+            write_stat_pair(2, "current pid / switches", task::current_pid() as u64, task::switches() as u64);
+            write_output(4, "running becomes ready; next ready task runs");
+            ui::draw_next("ps / sched demo / trace sched");
+        }
+        "syscall" | "sys" => {
+            ui::draw_badge(0, "CAUSE", "user intent crossed a service boundary");
+            write_stat_pair(2, "last number / calls", syscall::last_number(), syscall::calls());
+            write_output(4, "dispatcher records result, counters and trace");
+            ui::draw_next("flow syscall / syscall stats / run hello");
+        }
+        "file" | "fs" => {
+            ui::draw_badge(0, "CAUSE", "RAMFS command changed an in-memory entry");
+            write_stat_line(2, "active files", fs::count() as u64);
+            write_output(4, "metadata and page ownership change together");
+            ui::draw_next("flow file / files / trace file");
+        }
+        _ => {
+            ui::draw_badge(0, "ASK", "connect a metric to its kernel cause");
+            write_output(2, "why irq      why mem      why sched");
+            write_output(4, "why syscall  why file");
+            ui::draw_next("why irq / why mem / why sched");
+        }
+    }
 }
 
 fn show_bench(topic: &str) {
