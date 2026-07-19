@@ -51,12 +51,12 @@ Each numbered section is completed, verified, and committed separately.
 
 ## 5. Memory Map And Demonstration
 
-- [ ] Track page ownership in the physical page allocator.
-- [ ] Add `mem map` with a legend for kernel, task, filesystem, demo, used, and
+- [x] Track page ownership in the physical page allocator.
+- [x] Add `mem map` with a legend for kernel, task, filesystem, demo, used, and
       free pages.
-- [ ] Add `mem demo` that allocates and frees a page and exposes the transition.
-- [ ] Show fragmentation/longest-free-run and utilization metrics.
-- [ ] Record ownership transitions in trace.
+- [x] Add `mem demo` that allocates and frees a page and exposes the transition.
+- [x] Show fragmentation/longest-free-run and utilization metrics.
+- [x] Record ownership transitions in trace.
 - Verification: compare `mem map` before and after `mem demo`; inspect
   `trace mem`.
 

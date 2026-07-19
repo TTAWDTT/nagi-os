@@ -152,7 +152,7 @@ fn spawn(name: &str, state: TaskState) {
         return;
     }
 
-    let stack_page = mem::alloc_page(name).unwrap_or(0);
+    let stack_page = mem::alloc_page_owned(mem::PageOwner::Task, name).unwrap_or(0);
     let mut task = Task::empty();
     task.pid = idx as u32;
     task.state = state;

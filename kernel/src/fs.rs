@@ -55,7 +55,7 @@ pub fn create_or_write(name: &str, content: &str) -> bool {
 
     unsafe {
         if !FILES[idx].used {
-            FILES[idx].page = mem::alloc_page(name).unwrap_or(0);
+            FILES[idx].page = mem::alloc_page_owned(mem::PageOwner::File, name).unwrap_or(0);
         }
         FILES[idx].used = true;
         FILES[idx].len = 0;

@@ -31,6 +31,8 @@ const COMMANDS: &[&str] = &[
     "watch",
     "watch off",
     "mem",
+    "mem map",
+    "mem demo",
     "ps",
     "sched",
     "syscall",
@@ -132,6 +134,7 @@ static TOUR_STEP: AtomicUsize = AtomicUsize::new(0);
 static PRESENT_STEP: AtomicUsize = AtomicUsize::new(0);
 static PRESENT_ACTIVE: AtomicBool = AtomicBool::new(false);
 static WATCH_ACTIVE: AtomicBool = AtomicBool::new(false);
+static DEMO_PAGE: AtomicUsize = AtomicUsize::new(usize::MAX);
 
 pub fn init() {
     set_page(PAGE_HOME);
@@ -270,6 +273,10 @@ pub fn run(command: &str) {
     }
     if let Some(topic) = command_arg(command, "why") {
         show_why(topic);
+        return;
+    }
+    if let Some(topic) = command_arg(command, "mem") {
+        show_mem_topic(topic);
         return;
     }
     if let Some(topic) = command_arg(command, "present") {
@@ -925,7 +932,7 @@ fn show_demo(topic: &str) {
             write_output(4, "observe: trace sched");
         }
         "mem" | "memory" => {
-            let page = mem::alloc_page("demo");
+            let page = mem::alloc_page_owned(mem::PageOwner::Demo, "demo");
             if let Some(page) = page {
                 let _ = mem::free_page(page, "demo-free");
                 write_output(0, "demo memory:");
@@ -979,9 +986,69 @@ fn show_mem() {
     write_stat_pair(2, "used / total pages", stats.used_pages as u64, stats.total_pages as u64);
     write_stat_pair(3, "reserved / free", stats.reserved_pages as u64, stats.free_pages as u64);
     write_stat_pair(4, "alloc / free calls", stats.allocations as u64, stats.frees as u64);
-    write_stat_line(5, "failed allocations", stats.failed_allocations as u64);
+    write_stat_pair(5, "free runs / longest", stats.free_runs as u64, stats.longest_free_run as u64);
     ui::draw_progress(6, "utilization", stats.used_pages, stats.total_pages);
     ui::draw_next("mem map / mem demo / trace mem");
+}
+
+fn show_mem_topic(topic: &str) {
+    match topic {
+        "map" => show_mem_map("OWNERSHIP MAP"),
+        "demo" => {
+            let current = DEMO_PAGE.load(Ordering::Relaxed);
+            if current == usize::MAX {
+                if let Some(page) = mem::alloc_page_owned(mem::PageOwner::Demo, "map-demo-alloc") {
+                    DEMO_PAGE.store(page, Ordering::Relaxed);
+                    show_mem_map("DEMO PAGE ALLOCATED");
+                } else {
+                    set_page(PAGE_MEMORY);
+                    clear_page("MEMORY DEMO");
+                    ui::draw_badge(1, "FAILED", "no free page was available");
+                    ui::draw_next("mem map / trace mem");
+                }
+            } else {
+                let _ = mem::free_page(current, "map-demo-free");
+                DEMO_PAGE.store(usize::MAX, Ordering::Relaxed);
+                show_mem_map("DEMO PAGE FREED");
+            }
+        }
+        _ => show_mem(),
+    }
+}
+
+fn show_mem_map(title: &str) {
+    set_page(PAGE_MEMORY);
+    clear_page(title);
+    let stats = mem::stats();
+    ui::draw_badge(0, "128 PAGES", "one character equals one 4 KiB page");
+    let mut map_row = 0;
+    while map_row < 4 {
+        let mut col = 0;
+        while col < 32 {
+            let page = map_row * 32 + col;
+            let owner = mem::owner(page);
+            let byte = [owner.symbol()];
+            vga::write_at(OUTPUT_START_ROW + 2 + map_row, CONTENT_TEXT_COL + col,
+                as_str(&byte), memory_owner_color(owner));
+            col += 1;
+        }
+        map_row += 1;
+    }
+    write_output(6, "K kernel  T task  F file  D demo  # used  . free");
+    write_stat_pair(7, "free runs / longest", stats.free_runs as u64, stats.longest_free_run as u64);
+    ui::draw_next("mem demo toggles D / trace mem explains changes");
+}
+
+fn memory_owner_color(owner: mem::PageOwner) -> u8 {
+    let color = match owner {
+        mem::PageOwner::Kernel => vga::Color::LightRed,
+        mem::PageOwner::Task => vga::Color::LightGreen,
+        mem::PageOwner::File => vga::Color::Yellow,
+        mem::PageOwner::Demo => vga::Color::LightCyan,
+        mem::PageOwner::Used => vga::Color::LightBlue,
+        mem::PageOwner::Free => vga::Color::DarkGray,
+    };
+    vga::make_color(color, vga::Color::Black)
 }
 
 fn show_viz() {
