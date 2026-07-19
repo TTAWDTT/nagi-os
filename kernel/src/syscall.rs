@@ -1,4 +1,4 @@
-use core::sync::atomic::{AtomicU64, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use crate::{klog, pit, serial, trace, vga};
 
@@ -6,15 +6,28 @@ pub const SYS_WRITE: u64 = 1;
 pub const SYS_TIME: u64 = 2;
 pub const SYS_TRACE: u64 = 3;
 pub const SYS_STATS: u64 = 4;
+pub const ERR_NOSYS: u64 = u64::MAX;
 
 static CALLS: AtomicU64 = AtomicU64::new(0);
 static LAST_NUMBER: AtomicU64 = AtomicU64::new(0);
 static LAST_RETURN: AtomicU64 = AtomicU64::new(0);
+static LAST_OK: AtomicBool = AtomicBool::new(true);
+static WRITE_CALLS: AtomicU64 = AtomicU64::new(0);
+static TIME_CALLS: AtomicU64 = AtomicU64::new(0);
+static TRACE_CALLS: AtomicU64 = AtomicU64::new(0);
+static STATS_CALLS: AtomicU64 = AtomicU64::new(0);
+static ERRORS: AtomicU64 = AtomicU64::new(0);
 
 pub fn init() {
     CALLS.store(0, Ordering::Relaxed);
     LAST_NUMBER.store(0, Ordering::Relaxed);
     LAST_RETURN.store(0, Ordering::Relaxed);
+    LAST_OK.store(true, Ordering::Relaxed);
+    WRITE_CALLS.store(0, Ordering::Relaxed);
+    TIME_CALLS.store(0, Ordering::Relaxed);
+    TRACE_CALLS.store(0, Ordering::Relaxed);
+    STATS_CALLS.store(0, Ordering::Relaxed);
+    ERRORS.store(0, Ordering::Relaxed);
     trace::record(trace::TraceKind::Syscall, 0, "sys-init");
 }
 
@@ -26,21 +39,33 @@ pub fn invoke(number: u64, arg0: u64, label: &str) -> u64 {
 
     let ret = match number {
         SYS_WRITE => {
+            WRITE_CALLS.fetch_add(1, Ordering::Relaxed);
             serial::write_str("sys_write: ");
             serial::write_str(label);
             serial::write_str("\r\n");
             arg0
         }
-        SYS_TIME => pit::ticks(),
+        SYS_TIME => {
+            TIME_CALLS.fetch_add(1, Ordering::Relaxed);
+            pit::ticks()
+        }
         SYS_TRACE => {
+            TRACE_CALLS.fetch_add(1, Ordering::Relaxed);
             trace::record(trace::TraceKind::Syscall, arg0, "user-trace");
             0
         }
-        SYS_STATS => CALLS.load(Ordering::Relaxed),
-        _ => u64::MAX,
+        SYS_STATS => {
+            STATS_CALLS.fetch_add(1, Ordering::Relaxed);
+            CALLS.load(Ordering::Relaxed)
+        }
+        _ => {
+            ERRORS.fetch_add(1, Ordering::Relaxed);
+            ERR_NOSYS
+        }
     };
 
     LAST_RETURN.store(ret, Ordering::Relaxed);
+    LAST_OK.store(ret != ERR_NOSYS, Ordering::Relaxed);
     ret
 }
 
@@ -54,6 +79,28 @@ pub fn last_number() -> u64 {
 
 pub fn last_return() -> u64 {
     LAST_RETURN.load(Ordering::Relaxed)
+}
+
+pub fn last_ok() -> bool {
+    LAST_OK.load(Ordering::Relaxed)
+}
+
+pub fn errors() -> u64 {
+    ERRORS.load(Ordering::Relaxed)
+}
+
+pub fn call_count(number: u64) -> u64 {
+    match number {
+        SYS_WRITE => WRITE_CALLS.load(Ordering::Relaxed),
+        SYS_TIME => TIME_CALLS.load(Ordering::Relaxed),
+        SYS_TRACE => TRACE_CALLS.load(Ordering::Relaxed),
+        SYS_STATS => STATS_CALLS.load(Ordering::Relaxed),
+        _ => ERRORS.load(Ordering::Relaxed),
+    }
+}
+
+pub fn result_name(result: u64) -> &'static str {
+    if result == ERR_NOSYS { "ENOSYS" } else { "OK" }
 }
 
 pub fn dump_table_to_vga(start_row: usize, col: usize, max_rows: usize) {

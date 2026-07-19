@@ -35,11 +35,13 @@ const COMMANDS: &[&str] = &[
     "mem demo",
     "ps",
     "sched",
+    "sched demo",
     "syscall",
     "syscall write",
     "syscall time",
     "syscall trace",
     "syscall stats",
+    "syscall invalid",
     "run",
     "run hello",
     "run time",
@@ -279,6 +281,10 @@ pub fn run(command: &str) {
         show_mem_topic(topic);
         return;
     }
+    if let Some(topic) = command_arg(command, "sched") {
+        show_sched_topic(topic);
+        return;
+    }
     if let Some(topic) = command_arg(command, "present") {
         show_present(topic);
         return;
@@ -313,6 +319,7 @@ pub fn run(command: &str) {
         "syscall time" => show_syscall("time"),
         "syscall trace" => show_syscall("trace"),
         "syscall stats" => show_syscall("stats"),
+        "syscall invalid" => show_syscall("invalid"),
         "klog" => show_klog(),
         "trace" => show_trace(),
         "bench" => show_bench("overview"),
@@ -1090,7 +1097,7 @@ fn show_ls() {
     set_page(PAGE_FILES);
     clear_page("RAMFS");
     ui::draw_badge(0, "FILES", "name  size  page metadata");
-    ui::draw_table_header(1, "NAME          SIZE   PAGE");
+    ui::draw_table_header(1, "NAME          SIZE   REV   PAGE");
     fs::list_to_vga(OUTPUT_START_ROW + 2, CONTENT_TEXT_COL, OUTPUT_ROWS - 3);
     ui::draw_next("cat readme / echo hello > note / rm note");
 }
@@ -1104,6 +1111,11 @@ fn show_cat(name: &str) {
     write_output(0, as_str(&line[..len]));
     if !fs::cat_to_vga(name, OUTPUT_START_ROW + 1, CONTENT_TEXT_COL) {
         write_output(1, "file not found");
+    } else if let Some(meta) = fs::metadata(name) {
+        write_stat_pair(3, "size / revision", meta.size as u64, meta.revision);
+        write_stat_pair(4, "page / modified tick", meta.page as u64, meta.modified_tick);
+        write_stat_line(5, "created tick", meta.created_tick);
+        ui::draw_next("files / flow file / trace file");
     }
 }
 
@@ -1151,6 +1163,24 @@ fn show_sched() {
     write_output(7, "trace kind: SCHED, klog type: SCHED");
 }
 
+fn show_sched_topic(topic: &str) {
+    if topic != "demo" {
+        show_sched();
+        return;
+    }
+    set_page(PAGE_TASKS);
+    clear_page("SCHEDULER DEMO");
+    let sleeping = task::demo_transition();
+    if sleeping {
+        ui::draw_badge(0, "SLEEP", "worker moved Ready/Running -> Sleeping");
+    } else {
+        ui::draw_badge(0, "WAKE", "worker moved Sleeping -> Ready");
+    }
+    ui::draw_table_header(1, "PID NAME         STATE    RUN   SWITCHES");
+    task::dump_to_vga(OUTPUT_START_ROW + 2, CONTENT_TEXT_COL, OUTPUT_ROWS - 3);
+    ui::draw_next("sched demo toggles again / trace sched");
+}
+
 fn show_syscall(mode: &str) {
     set_page(PAGE_STATUS);
     clear_page("SYSCALL TABLE");
@@ -1168,9 +1198,26 @@ fn show_syscall(mode: &str) {
         let ret = syscall::invoke(syscall::SYS_TRACE, 7, "trace");
         write_stat_line(7, "sys_trace return", ret);
     }
-    if mode == "demo" || mode == "stats" {
+    if mode == "demo" {
         let ret = syscall::invoke(syscall::SYS_STATS, 0, "stats");
         write_stat_line(8, "sys_stats calls", ret);
+    }
+    if mode == "stats" {
+        ui::clear_output("SYSCALL STATS");
+        write_stat_pair(0, "write / time", syscall::call_count(syscall::SYS_WRITE), syscall::call_count(syscall::SYS_TIME));
+        write_stat_pair(2, "trace / stats", syscall::call_count(syscall::SYS_TRACE), syscall::call_count(syscall::SYS_STATS));
+        write_stat_pair(4, "total / errors", syscall::calls(), syscall::errors());
+        write_stat_pair(6, "last number / result", syscall::last_number(), syscall::last_return());
+        ui::draw_next("syscall invalid / flow syscall / run hello");
+    }
+    if mode == "invalid" {
+        ui::clear_output("SYSCALL ERROR PATH");
+        let ret = syscall::invoke(99, 0, "invalid");
+        ui::draw_badge(0, syscall::result_name(ret), "unknown syscall 99 rejected safely");
+        write_stat_line(2, "return value", ret);
+        write_stat_line(4, "total syscall errors", syscall::errors());
+        write_output(6, if syscall::last_ok() { "unexpected success" } else { "kernel continued after validation" });
+        ui::draw_next("syscall stats / trace syscall / flow syscall");
     }
 }
 

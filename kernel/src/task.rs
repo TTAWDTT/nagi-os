@@ -40,6 +40,8 @@ struct Task {
     name: [u8; 12],
     state: TaskState,
     ticks: u64,
+    switches: u64,
+    wake_tick: u64,
     stack_page: usize,
 }
 
@@ -50,6 +52,8 @@ impl Task {
             name: [0; 12],
             state: TaskState::Empty,
             ticks: 0,
+            switches: 0,
+            wake_tick: 0,
             stack_page: 0,
         }
     }
@@ -72,6 +76,9 @@ pub fn init() {
     spawn("logger", TaskState::Ready);
     spawn("worker", TaskState::Ready);
     spawn("shell", TaskState::Sleeping);
+    unsafe {
+        TASKS[3].wake_tick = 100;
+    }
     trace::record(trace::TraceKind::Schedule, TASK_CAPACITY as u64, "task-init");
 }
 
@@ -84,18 +91,39 @@ pub fn on_tick(tick: u64) {
     let current = CURRENT.load(Ordering::Relaxed);
     unsafe {
         TASKS[current].ticks = TASKS[current].ticks.saturating_add(1);
+        let mut i = 0;
+        while i < count {
+            if TASKS[i].state == TaskState::Sleeping && TASKS[i].wake_tick > 0 && tick >= TASKS[i].wake_tick {
+                TASKS[i].state = TaskState::Ready;
+                TASKS[i].wake_tick = 0;
+                trace::record(trace::TraceKind::Schedule, TASKS[i].pid as u64, "wake");
+            }
+            i += 1;
+        }
     }
 
     if tick % SCHEDULE_INTERVAL_TICKS != 0 {
         return;
     }
 
-    let next = (current + 1) % count;
+    let mut next = current;
+    let mut scanned = 0;
+    while scanned < count {
+        next = (next + 1) % count;
+        if unsafe { TASKS[next].state == TaskState::Ready } {
+            break;
+        }
+        scanned += 1;
+    }
+    if next == current || unsafe { TASKS[next].state != TaskState::Ready } {
+        return;
+    }
     unsafe {
         if TASKS[current].state == TaskState::Running {
             TASKS[current].state = TaskState::Ready;
         }
         TASKS[next].state = TaskState::Running;
+        TASKS[next].switches = TASKS[next].switches.saturating_add(1);
     }
     CURRENT.store(next, Ordering::Relaxed);
     SWITCHES.fetch_add(1, Ordering::Relaxed);
@@ -119,6 +147,40 @@ pub fn interval_ticks() -> u64 {
     SCHEDULE_INTERVAL_TICKS
 }
 
+pub fn demo_transition() -> bool {
+    let idx = 2;
+    unsafe {
+        if TASKS[idx].state == TaskState::Sleeping {
+            TASKS[idx].state = TaskState::Ready;
+            TASKS[idx].wake_tick = 0;
+            trace::record(trace::TraceKind::Schedule, TASKS[idx].pid as u64, "demo-wake");
+            false
+        } else {
+            if CURRENT.load(Ordering::Relaxed) == idx {
+                TASKS[idx].state = TaskState::Ready;
+                let count = TASK_COUNT.load(Ordering::Relaxed);
+                let mut next = idx;
+                let mut scanned = 0;
+                while scanned < count {
+                    next = (next + 1) % count;
+                    if TASKS[next].state == TaskState::Ready {
+                        break;
+                    }
+                    scanned += 1;
+                }
+                TASKS[next].state = TaskState::Running;
+                TASKS[next].switches = TASKS[next].switches.saturating_add(1);
+                CURRENT.store(next, Ordering::Relaxed);
+                SWITCHES.fetch_add(1, Ordering::Relaxed);
+            }
+            TASKS[idx].state = TaskState::Sleeping;
+            TASKS[idx].wake_tick = 0;
+            trace::record(trace::TraceKind::Schedule, TASKS[idx].pid as u64, "demo-sleep");
+            true
+        }
+    }
+}
+
 pub fn dump_to_vga(start_row: usize, col: usize, max_rows: usize) {
     let color = vga::make_color(vga::Color::LightGray, vga::Color::Black);
     let count = TASK_COUNT.load(Ordering::Relaxed);
@@ -132,9 +194,11 @@ pub fn dump_to_vga(start_row: usize, col: usize, max_rows: usize) {
         len = copy_bytes(&mut line, len, name_as_str(&task.name).as_bytes());
         len = copy_bytes(&mut line, len, b" ");
         len = copy_bytes(&mut line, len, task.state.as_str().as_bytes());
-        len = copy_bytes(&mut line, len, b" ticks=");
+        len = copy_bytes(&mut line, len, b" run=");
         len = append_u64(&mut line, len, task.ticks);
-        len = copy_bytes(&mut line, len, b" stack=");
+        len = copy_bytes(&mut line, len, b" sw=");
+        len = append_u64(&mut line, len, task.switches);
+        len = copy_bytes(&mut line, len, b" p=");
         len = append_u64(&mut line, len, task.stack_page as u64);
         let row_color = if i == CURRENT.load(Ordering::Relaxed) {
             vga::make_color(vga::Color::LightGreen, vga::Color::Black)

@@ -62,13 +62,13 @@ Each numbered section is completed, verified, and committed separately.
 
 ## 6. Kernel Model Hardening
 
-- [ ] Expand task states to Ready, Running, and Sleeping.
-- [ ] Add scheduler state transitions and per-task runtime/switch metrics.
-- [ ] Add a deterministic `sched demo` state-transition demonstration.
-- [ ] Add syscall success/error result semantics and per-syscall counters.
-- [ ] Add invalid syscall demonstration and readable error names.
-- [ ] Extend RAMFS entries with size, revision, and page ownership metadata.
-- [ ] Show structured file metadata and preserve create/read/write/remove flows.
+- [x] Expand task states to Ready, Running, and Sleeping.
+- [x] Add scheduler state transitions and per-task runtime/switch metrics.
+- [x] Add a deterministic `sched demo` state-transition demonstration.
+- [x] Add syscall success/error result semantics and per-syscall counters.
+- [x] Add invalid syscall demonstration and readable error names.
+- [x] Extend RAMFS entries with size, revision, and page ownership metadata.
+- [x] Show structured file metadata and preserve create/read/write/remove flows.
 - Verification: `ps`, `sched demo`, `syscall stats`, `syscall invalid`, `files`,
   file creation/update/removal.
 

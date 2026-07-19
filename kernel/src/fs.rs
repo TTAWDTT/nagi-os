@@ -18,6 +18,9 @@ struct RamFile {
     content: [u8; CONTENT_LEN],
     len: usize,
     page: usize,
+    revision: u64,
+    created_tick: u64,
+    modified_tick: u64,
 }
 
 impl RamFile {
@@ -28,6 +31,9 @@ impl RamFile {
             content: [0; CONTENT_LEN],
             len: 0,
             page: 0,
+            revision: 0,
+            created_tick: 0,
+            modified_tick: 0,
         }
     }
 }
@@ -55,7 +61,15 @@ pub fn create_or_write(name: &str, content: &str) -> bool {
 
     unsafe {
         if !FILES[idx].used {
-            FILES[idx].page = mem::alloc_page_owned(mem::PageOwner::File, name).unwrap_or(0);
+            let page = match mem::alloc_page_owned(mem::PageOwner::File, name) {
+                Some(page) => page,
+                None => return false,
+            };
+            FILES[idx].page = page;
+            FILES[idx].revision = 1;
+            FILES[idx].created_tick = crate::pit::ticks();
+        } else {
+            FILES[idx].revision = FILES[idx].revision.saturating_add(1);
         }
         FILES[idx].used = true;
         FILES[idx].len = 0;
@@ -63,6 +77,7 @@ pub fn create_or_write(name: &str, content: &str) -> bool {
         clear_bytes(&mut FILES[idx].content);
         copy_into(&mut FILES[idx].name, name.as_bytes());
         FILES[idx].len = copy_into(&mut FILES[idx].content, content.as_bytes());
+        FILES[idx].modified_tick = crate::pit::ticks();
     }
 
     trace::record(trace::TraceKind::File, content.len() as u64, name);
@@ -114,6 +129,8 @@ pub fn list_to_vga(start_row: usize, col: usize, max_rows: usize) {
                 len = copy_bytes(&mut line, len, name_as_str(&file.name).as_bytes());
                 len = copy_bytes(&mut line, len, b" len=");
                 len = append_u64(&mut line, len, file.len as u64);
+                len = copy_bytes(&mut line, len, b" rev=");
+                len = append_u64(&mut line, len, file.revision);
                 len = copy_bytes(&mut line, len, b" page=");
                 len = append_u64(&mut line, len, file.page as u64);
                 vga::write_at(start_row + row, col, as_str(&line[..len]), color);
@@ -122,6 +139,30 @@ pub fn list_to_vga(start_row: usize, col: usize, max_rows: usize) {
             i += 1;
         }
     }
+}
+
+#[derive(Clone, Copy)]
+pub struct FileMetadata {
+    pub size: usize,
+    pub page: usize,
+    pub revision: u64,
+    pub created_tick: u64,
+    pub modified_tick: u64,
+}
+
+pub fn metadata(name: &str) -> Option<FileMetadata> {
+    let idx = find(name);
+    if idx >= FILE_CAPACITY {
+        return None;
+    }
+    let file = unsafe { FILES[idx] };
+    Some(FileMetadata {
+        size: file.len,
+        page: file.page,
+        revision: file.revision,
+        created_tick: file.created_tick,
+        modified_tick: file.modified_tick,
+    })
 }
 
 pub fn cat_to_vga(name: &str, row: usize, col: usize) -> bool {
