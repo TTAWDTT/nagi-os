@@ -425,7 +425,7 @@ fn show_present(topic: &str) {
     match step {
         0 => present_page("NAGI OS", "Rust x86_64 kernel from boot sector to shell",
             "run present and follow a live kernel story",
-            "calm interface makes invisible kernel motion visible"),
+            "calm UI reveals invisible kernel motion"),
         1 => present_page("BOOT PATH", "stage1 + stage2 enter 64-bit long mode",
             "klog / trace boot",
             "hand-built boot chain reaches a no_std Rust kernel"),

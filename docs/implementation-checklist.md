@@ -88,13 +88,13 @@ Each numbered section is completed, verified, and committed separately.
 
 ## 8. Documentation And Demonstration Assets
 
-- [ ] Update README feature and command references.
-- [ ] Add `docs/design.md` for visual and interaction decisions.
-- [ ] Add `docs/architecture.md` with boot and kernel subsystem diagrams.
-- [ ] Add `docs/course-report.md` as a report/defense writing foundation.
-- [ ] Document a 30-second route and a full defense route.
-- [ ] Capture at least one current UI screenshot from QEMU.
-- [ ] Explain innovation, limitations, Rust rationale, and reproducible
+- [x] Update README feature and command references.
+- [x] Add `docs/design.md` for visual and interaction decisions.
+- [x] Add `docs/architecture.md` with boot and kernel subsystem diagrams.
+- [x] Add `docs/course-report.md` as a report/defense writing foundation.
+- [x] Document a 30-second route and a full defense route.
+- [x] Capture at least one current UI screenshot from QEMU.
+- [x] Explain innovation, limitations, Rust rationale, and reproducible
       C/Rust comparison methodology without making unsupported claims.
 - Verification: commands and document claims match the built image.
 

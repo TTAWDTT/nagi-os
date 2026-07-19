@@ -14,6 +14,8 @@
 
 名字来源于日文中的 **「凪」**，寓意为冷静、无风、稳定。该项目的目标是打造一个微型操作系统，将底层硬件和并发的内核活动转化为一个沉浸式、可观测的环境。
 
+![Nagi OS presentation console](docs/nagi-console.png)
+
 ## 项目当前状态
 
 此仓库当前可引导一个极小的 x86_64 核，已实现以下特性:
@@ -42,6 +44,14 @@
 - `demo` 一键式课程答辩演示入口
 - 轻量顶部提示、底部状态、输出区标题、输入光标
 - 顶部动态 `NAGI` 风纹标识，由 PIT tick 驱动
+- `present` 九页固定答辩叙事，支持方向键和 `n` / `b` 翻页
+- `watch` 由 PIT 驱动的 4 Hz 实时内核仪表盘
+- `mem map` 带 Kernel / Task / File / Demo 所有权的 128 页地图
+- `flow` / `replay` / `why` 可解释内核路径与事件故事
+- Ready / Running / Sleeping 任务状态和逐任务运行/切换计数
+- syscall 分项统计、`ENOSYS` 错误路径和无效调用演示
+- RAMFS 文件大小、revision、创建/修改 tick 和物理页元数据
+- 8 条命令历史、草稿恢复、候选选择和未知命令纠错
 - F1 / 上方向键召回上一条命令
 - 左右方向键移动输入光标，Home / End 跳到行首 / 行尾
 - Delete 删除光标后的字符，Backspace 删除光标前的字符
@@ -92,12 +102,19 @@ status            sysstat 的简写
 s                 status 的一键入口
 mem               查看物理页分配器
 m                 mem 的一键入口
+mem map           查看 128 页所有权地图
+mem demo          切换一个 Demo 页的分配/释放状态
 viz               查看 ASCII 状态面板
 v                 viz 的一键入口
+watch             打开 4 Hz 实时内核仪表盘
+watch off         停止实时仪表盘
 ps                查看内核任务表
 p                 ps 的一键入口
 sched             查看调度状态
+sched demo        切换 worker 的 Sleeping/Ready 状态
 syscall           运行系统调用演示
+syscall stats     查看分项调用和错误计数
+syscall invalid   演示 ENOSYS 安全错误路径
 klog              查看内核日志
 trace             查看近期 trace
 trace irq         过滤中断事件
@@ -109,6 +126,11 @@ trace on          开启 trace 记录
 trace off         关闭 trace 记录
 trace status      查看 trace 开关与 skipped 计数
 timeline          查看统一事件时间线
+replay            用叙事形式重放近期事件
+flow irq          查看硬件中断处理路径
+flow syscall      查看用户意图到内核服务的路径
+flow file         查看 RAMFS 操作路径
+why irq           解释指标变化原因，也支持 mem/sched/syscall/file
 explain irq       解释中断路径
 explain sched     解释调度模型
 explain mem       解释内存模型
@@ -130,6 +152,8 @@ guide             tour 的简写
 g                 guide 的一键入口
 tour next         翻到下一页导览
 n                 tour next 的一键入口
+present           进入九页固定答辩模式
+present summary   直接打开答辩总结页
 bench trace       演示 trace on/off 的记录差异
 b                 bench trace 的一键入口
 demo              查看演示主题
@@ -142,10 +166,19 @@ clear / cls       清空输出区
 q                 clear 的一键入口
 ```
 
-输入区支持简单行编辑：左右方向键移动光标，`Home` / `End` 跳到行首 / 行尾，
+输入区支持完整的单行编辑：左右方向键移动光标，`Home` / `End` 跳到行首 / 行尾，
 `Delete` 删除光标后的字符。输入 `r` 会在输入区中显示 `r` 加灰色预测尾巴 `un`，
-输入 `trace s` 会显示灰色预测尾巴 `ched`；光标在行尾时按右方向键或 `Tab` 接受补全。按 `F1` 或上方向键召回
-上一条命令，按 `Esc` 清空当前输入。
+输入 `trace s` 会显示灰色预测尾巴 `ched`；光标在行尾时按右方向键或 `Tab` 接受补全。
+输入前缀时用上下方向键选择候选；空输入时用上下方向键浏览 8 条历史并保留原草稿，
+`F1` 直接召回最新历史，`Esc` 清空当前输入。答辩模式下空输入的左右方向键负责翻页。
+
+## 演示与课程文档
+
+- [30 秒与完整答辩路线](docs/demo-guide.md)
+- [系统架构](docs/architecture.md)
+- [界面与交互设计](docs/design.md)
+- [课程报告底稿](docs/course-report.md)
+- [本轮完整实施清单](docs/implementation-checklist.md)
 
 ## 如何构建和运行
 
