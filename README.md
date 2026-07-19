@@ -179,6 +179,7 @@ q                 clear 的一键入口
 - [界面与交互设计](docs/design.md)
 - [课程报告底稿](docs/course-report.md)
 - [本轮完整实施清单](docs/implementation-checklist.md)
+- [本轮实现总结](docs/implementation-summary.md)
 
 ## 如何构建和运行
 

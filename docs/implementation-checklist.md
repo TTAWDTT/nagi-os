@@ -100,11 +100,11 @@ Each numbered section is completed, verified, and committed separately.
 
 ## 9. Final Verification And Summary
 
-- [ ] Build the disk image from a clean incremental state.
-- [ ] Pass the automated smoke test.
-- [ ] Run scripted serial checks for the expected boot markers.
-- [ ] Inspect git status and commit history for isolated implementation commits.
-- [ ] Push all commits to `origin/main`.
-- [ ] Add `docs/implementation-summary.md` with completed work, architecture,
+- [x] Build the disk image from a clean incremental state.
+- [x] Pass the automated smoke test.
+- [x] Run scripted serial checks for the expected boot markers.
+- [x] Inspect git status and commit history for isolated implementation commits.
+- [x] Push all commits to `origin/main`.
+- [x] Add `docs/implementation-summary.md` with completed work, architecture,
       validation, demo route, remaining limitations, and extension directions.
-- [ ] Commit the summary as the final implementation commit.
+- [x] Commit the summary as the final implementation commit.
