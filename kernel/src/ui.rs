@@ -122,6 +122,63 @@ pub fn clear_output(title: &str) {
     }
 }
 
+pub fn draw_badge(row: usize, label: &str, text: &str) {
+    if row >= OUTPUT_ROWS {
+        return;
+    }
+    let badge = vga::make_color(vga::Color::Black, vga::Color::LightCyan);
+    let body = vga::make_color(vga::Color::LightGray, vga::Color::Black);
+    let screen_row = OUTPUT_START_ROW + row;
+    vga::write_at(screen_row, content_text_col(), " ", badge);
+    vga::write_at(screen_row, content_text_col() + 1, clip(label, 8), badge);
+    vga::write_at(screen_row, content_text_col() + 1 + core::cmp::min(label.len(), 8), " ", badge);
+    vga::write_at(screen_row, content_text_col() + 12, clip(text, 42), body);
+}
+
+pub fn draw_metric(row: usize, slot: usize, label: &str, value: u64) {
+    if row >= OUTPUT_ROWS || slot > 1 {
+        return;
+    }
+    let label_color = vga::make_color(vga::Color::DarkGray, vga::Color::Black);
+    let value_color = vga::make_color(vga::Color::LightGreen, vga::Color::Black);
+    let col = content_text_col() + slot * 27;
+    vga::write_at(OUTPUT_START_ROW + row, col, clip(label, 14), label_color);
+    write_u64_at(OUTPUT_START_ROW + row, col + 15, value, value_color);
+}
+
+pub fn draw_table_header(row: usize, text: &str) {
+    if row >= OUTPUT_ROWS {
+        return;
+    }
+    let color = vga::make_color(vga::Color::LightBlue, vga::Color::Black);
+    vga::write_at(OUTPUT_START_ROW + row, content_text_col(), clip(text, 52), color);
+}
+
+pub fn draw_progress(row: usize, label: &str, used: usize, total: usize) {
+    if row >= OUTPUT_ROWS || total == 0 {
+        return;
+    }
+    let label_color = vga::make_color(vga::Color::DarkGray, vga::Color::Black);
+    let used_color = vga::make_color(vga::Color::LightCyan, vga::Color::Black);
+    let free_color = vga::make_color(vga::Color::Blue, vga::Color::Black);
+    let screen_row = OUTPUT_START_ROW + row;
+    vga::write_at(screen_row, content_text_col(), clip(label, 12), label_color);
+    let filled = core::cmp::min(24, used.saturating_mul(24) / total);
+    let mut i = 0;
+    while i < 24 {
+        vga::write_at(screen_row, content_text_col() + 14 + i, if i < filled { "#" } else { "." }, if i < filled { used_color } else { free_color });
+        i += 1;
+    }
+}
+
+pub fn draw_next(text: &str) {
+    let muted = vga::make_color(vga::Color::DarkGray, vga::Color::Black);
+    let accent = vga::make_color(vga::Color::LightCyan, vga::Color::Black);
+    clear_right_row(OUTPUT_START_ROW + OUTPUT_ROWS - 1, muted);
+    vga::write_at(OUTPUT_START_ROW + OUTPUT_ROWS - 1, content_text_col(), ">", accent);
+    vga::write_at(OUTPUT_START_ROW + OUTPUT_ROWS - 1, content_text_col() + 2, clip(text, 50), muted);
+}
+
 pub fn draw_footer(status: &str) {
     let color = vga::make_color(vga::Color::DarkGray, vga::Color::Black);
     vga::write_line(FOOTER_ROW, "", color);
@@ -135,6 +192,13 @@ pub fn draw_footer(status: &str) {
     }
     vga::write_at(FOOTER_ROW, 39, status, color);
     vga::write_at(FOOTER_ROW, 59, "Enter to run", color);
+}
+
+pub fn draw_footer_path(page: &str, status: &str) {
+    let color = vga::make_color(vga::Color::DarkGray, vga::Color::Black);
+    draw_footer(status);
+    vga::write_at(FOOTER_ROW, 39, "nagi / ", color);
+    vga::write_at(FOOTER_ROW, 46, clip(page, 10), color);
 }
 
 pub fn draw_logo_card() {

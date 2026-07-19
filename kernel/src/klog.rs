@@ -117,7 +117,7 @@ pub fn dump_to_console() {
     }
 }
 
-pub fn dump_to_vga(start_row: usize, max_rows: usize) {
+pub fn dump_to_vga(start_row: usize, col: usize, max_rows: usize) {
     unsafe {
         let color = vga::make_color(vga::Color::LightGray, vga::Color::Black);
         let start = if KLOG.len == LOG_CAPACITY { KLOG.next } else { 0 };
@@ -136,7 +136,7 @@ pub fn dump_to_vga(start_row: usize, max_rows: usize) {
             len = append_u64(&mut line, len, event.arg0);
             len = copy_bytes_slice(&mut line, len, b" a1=");
             len = append_u64(&mut line, len, event.arg1);
-            vga::write_line(start_row + i, as_str(&line[..len]), color);
+            vga::write_at(start_row + i, col, as_str(&line[..len]), color);
             i += 1;
         }
     }

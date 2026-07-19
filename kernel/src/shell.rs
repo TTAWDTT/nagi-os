@@ -387,14 +387,12 @@ fn present_page(title: &str, implemented: &str, observe: &str, innovation: &str)
 
 fn show_help() {
     set_page(PAGE_HELP);
-    clear_output();
-    write_output(0, "quick keys");
-    write_key_line(2, "h", "help       s status     v overview");
-    write_key_line(3, "m", "memory     p tasks      f files");
-    write_key_line(4, "t", "timeline   g guide      n next");
-    write_key_line(5, "r", "programs   b bench      d demos");
-    write_key_line(6, "q", "clear");
-    write_output(8, "more: help obs, help fs, help demo, colors");
+    clear_page("COMMAND INDEX");
+    ui::draw_badge(0, "CORE", "s status   m memory   p tasks");
+    ui::draw_badge(2, "OBSERVE", "v watch   t timeline   trace");
+    ui::draw_badge(4, "STORAGE", "f files   cat   echo   rm");
+    ui::draw_badge(6, "DEFENSE", "present   tour   demo   bench");
+    ui::draw_next("help obs / help fs / help demo");
 }
 
 fn show_colors() {
@@ -485,30 +483,33 @@ fn show_klog() {
     set_page(PAGE_TRACE);
     clear_output();
     write_output(0, "early kernel log:");
-    klog::dump_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1);
+    klog::dump_to_vga(OUTPUT_START_ROW + 1, CONTENT_TEXT_COL, OUTPUT_ROWS - 1);
 }
 
 fn show_sysstat() {
     set_page(PAGE_STATUS);
-    clear_output();
+    clear_page("SYSTEM STATUS");
     let ticks = pit::ticks();
-    write_output(0, "Nagi OS system status:");
-    write_stat_line(1, "pit ticks", ticks);
-    write_stat_line(2, "uptime seconds", ticks / pit::CONFIGURED_FREQUENCY_HZ as u64);
-    write_stat_line(3, "timer irq0", ticks);
-    write_stat_line(4, "keyboard irq1", keyboard::irq_count());
-    write_stat_pair(5, "klog events", klog::len() as u64, klog::capacity() as u64);
-    write_stat_pair(6, "trace events", trace::len() as u64, trace::capacity() as u64);
+    ui::draw_badge(0, "ONLINE", "interrupts and shell are active");
+    write_stat_pair(2, "uptime / ticks", ticks / pit::CONFIGURED_FREQUENCY_HZ as u64, ticks);
+    write_stat_pair(3, "timer / keyboard IRQ", ticks, keyboard::irq_count());
+    write_stat_pair(4, "klog / trace events", klog::len() as u64, trace::len() as u64);
     let memory = mem::stats();
-    write_stat_pair(7, "memory pages", memory.used_pages as u64, memory.total_pages as u64);
-    write_stat_pair(8, "user/syscalls", user::count() as u64, syscall::calls());
+    ui::draw_metric(5, 0, "memory used", memory.used_pages as u64);
+    ui::draw_metric(5, 1, "total pages", memory.total_pages as u64);
+    ui::draw_metric(6, 0, "tasks", task::count() as u64);
+    ui::draw_metric(6, 1, "switches", task::switches() as u64);
+    ui::draw_metric(7, 0, "files", fs::count() as u64);
+    ui::draw_metric(7, 1, "syscalls", syscall::calls());
+    ui::draw_next("watch for live data / m memory / p tasks");
 }
 
 fn show_trace() {
     set_page(PAGE_TRACE);
-    clear_output();
-    write_output(0, "recent trace events:");
-    trace::dump_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1);
+    clear_page("KERNEL TRACE");
+    ui::draw_badge(0, "RECENT", "time-ordered kernel events");
+    trace::dump_to_vga(OUTPUT_START_ROW + 2, CONTENT_TEXT_COL, OUTPUT_ROWS - 3);
+    ui::draw_next("timeline / trace irq / trace sched");
 }
 
 fn show_trace_filtered(filter: &str) {
@@ -518,7 +519,8 @@ fn show_trace_filtered(filter: &str) {
     let mut len = copy_bytes(&mut line, 0, b"trace filter: ");
     len = copy_bytes(&mut line, len, filter.as_bytes());
     write_output(0, as_str(&line[..len]));
-    trace::dump_filtered_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1, Some(filter));
+    trace::dump_filtered_to_vga(OUTPUT_START_ROW + 1, CONTENT_TEXT_COL, OUTPUT_ROWS - 2, Some(filter));
+    ui::draw_next("trace / timeline / replay");
 }
 
 fn show_trace_control(enabled: bool) {
@@ -553,7 +555,7 @@ fn show_timeline() {
     set_page(PAGE_TRACE);
     clear_output();
     write_output(0, "kernel event timeline:");
-    trace::dump_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1);
+    trace::dump_to_vga(OUTPUT_START_ROW + 1, CONTENT_TEXT_COL, OUTPUT_ROWS - 1);
 }
 
 fn show_bench(topic: &str) {
@@ -804,17 +806,15 @@ fn show_demo(topic: &str) {
 
 fn show_mem() {
     set_page(PAGE_MEMORY);
-    clear_output();
+    clear_page("PHYSICAL MEMORY");
     let stats = mem::stats();
-    write_output(0, "physical page allocator:");
-    write_stat_line(1, "page size bytes", stats.page_size as u64);
-    write_stat_line(2, "total pages", stats.total_pages as u64);
-    write_stat_line(3, "reserved pages", stats.reserved_pages as u64);
-    write_stat_pair(4, "used/free pages", stats.used_pages as u64, stats.free_pages as u64);
-    write_stat_line(5, "alloc calls", stats.allocations as u64);
-    write_stat_line(6, "free calls", stats.frees as u64);
-    write_stat_line(7, "failed allocs", stats.failed_allocations as u64);
-    write_memory_bar(8);
+    ui::draw_badge(0, "4 KIB", "fixed physical page pool");
+    write_stat_pair(2, "used / total pages", stats.used_pages as u64, stats.total_pages as u64);
+    write_stat_pair(3, "reserved / free", stats.reserved_pages as u64, stats.free_pages as u64);
+    write_stat_pair(4, "alloc / free calls", stats.allocations as u64, stats.frees as u64);
+    write_stat_line(5, "failed allocations", stats.failed_allocations as u64);
+    ui::draw_progress(6, "utilization", stats.used_pages, stats.total_pages);
+    ui::draw_next("mem map / mem demo / trace mem");
 }
 
 fn show_viz() {
@@ -836,7 +836,7 @@ fn show_run(name: &str) {
     clear_output();
     if name == "overview" {
         write_output(0, "user programs:");
-        user::list_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1);
+        user::list_to_vga(OUTPUT_START_ROW + 1, CONTENT_TEXT_COL, OUTPUT_ROWS - 1);
         return;
     }
 
@@ -854,9 +854,11 @@ fn show_run(name: &str) {
 
 fn show_ls() {
     set_page(PAGE_FILES);
-    clear_output();
-    write_output(0, "RAMFS files:");
-    fs::list_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1);
+    clear_page("RAMFS");
+    ui::draw_badge(0, "FILES", "name  size  page metadata");
+    ui::draw_table_header(1, "NAME          SIZE   PAGE");
+    fs::list_to_vga(OUTPUT_START_ROW + 2, CONTENT_TEXT_COL, OUTPUT_ROWS - 3);
+    ui::draw_next("cat readme / echo hello > note / rm note");
 }
 
 fn show_cat(name: &str) {
@@ -866,7 +868,7 @@ fn show_cat(name: &str) {
     let mut len = copy_bytes(&mut line, 0, b"cat ");
     len = copy_bytes(&mut line, len, name.as_bytes());
     write_output(0, as_str(&line[..len]));
-    if !fs::cat_to_vga(name, OUTPUT_START_ROW + 1) {
+    if !fs::cat_to_vga(name, OUTPUT_START_ROW + 1, CONTENT_TEXT_COL) {
         write_output(1, "file not found");
     }
 }
@@ -895,9 +897,11 @@ fn show_rm(name: &str) {
 
 fn show_ps() {
     set_page(PAGE_TASKS);
-    clear_output();
-    write_output(0, "kernel tasks:");
-    task::dump_to_vga(OUTPUT_START_ROW + 1, OUTPUT_ROWS - 1);
+    clear_page("TASKS");
+    ui::draw_badge(0, "CURRENT", "green row is running");
+    ui::draw_table_header(1, "PID NAME         STATE    RUNTIME   STACK");
+    task::dump_to_vga(OUTPUT_START_ROW + 2, CONTENT_TEXT_COL, OUTPUT_ROWS - 3);
+    ui::draw_next("sched / trace sched / watch");
 }
 
 fn show_sched() {
@@ -915,9 +919,8 @@ fn show_sched() {
 
 fn show_syscall(mode: &str) {
     set_page(PAGE_STATUS);
-    clear_output();
-    write_output(0, "syscall table:");
-    syscall::dump_table_to_vga(OUTPUT_START_ROW + 1, 4);
+    clear_page("SYSCALL TABLE");
+    syscall::dump_table_to_vga(OUTPUT_START_ROW, CONTENT_TEXT_COL, 4);
 
     if mode == "demo" || mode == "write" {
         let ret = syscall::invoke(syscall::SYS_WRITE, 14, "hello-syscall");
@@ -950,8 +953,12 @@ fn show_unknown(command: &str) {
 }
 
 fn clear_output() {
-    ui::clear_output("output");
-    ui::draw_footer("ready");
+    clear_page(current_page());
+}
+
+fn clear_page(title: &str) {
+    ui::clear_output(title);
+    ui::draw_footer_path(current_page(), "ready");
 }
 
 fn write_output(offset: usize, text: &str) {

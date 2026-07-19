@@ -108,11 +108,11 @@ pub const fn capacity() -> usize {
     TRACE_CAPACITY
 }
 
-pub fn dump_to_vga(start_row: usize, max_rows: usize) {
-    dump_filtered_to_vga(start_row, max_rows, None);
+pub fn dump_to_vga(start_row: usize, col: usize, max_rows: usize) {
+    dump_filtered_to_vga(start_row, col, max_rows, None);
 }
 
-pub fn dump_filtered_to_vga(start_row: usize, max_rows: usize, filter: Option<&str>) {
+pub fn dump_filtered_to_vga(start_row: usize, col: usize, max_rows: usize, filter: Option<&str>) {
     let color = vga::make_color(vga::Color::LightGray, vga::Color::Black);
     let len = LEN.load(Ordering::Relaxed);
     let next = NEXT.load(Ordering::Relaxed);
@@ -140,7 +140,7 @@ pub fn dump_filtered_to_vga(start_row: usize, max_rows: usize, filter: Option<&s
         out = copy_bytes(&mut line, out, label_as_str(&event.label).as_bytes());
         out = copy_bytes(&mut line, out, b" v=");
         out = append_u64(&mut line, out, event.value);
-        vga::write_line(start_row + written, as_str(&line[..out]), color);
+        vga::write_at(start_row + written, col, as_str(&line[..out]), color);
         written += 1;
         i += 1;
     }

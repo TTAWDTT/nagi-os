@@ -56,7 +56,7 @@ pub fn last_return() -> u64 {
     LAST_RETURN.load(Ordering::Relaxed)
 }
 
-pub fn dump_table_to_vga(start_row: usize, max_rows: usize) {
+pub fn dump_table_to_vga(start_row: usize, col: usize, max_rows: usize) {
     let color = vga::make_color(vga::Color::LightGray, vga::Color::Black);
     let rows = [
         (SYS_WRITE, "write", "serial output"),
@@ -74,7 +74,7 @@ pub fn dump_table_to_vga(start_row: usize, max_rows: usize) {
         len = copy_bytes(&mut line, len, name.as_bytes());
         len = copy_bytes(&mut line, len, b" - ");
         len = copy_bytes(&mut line, len, desc.as_bytes());
-        vga::write_line(start_row + i, as_str(&line[..len]), color);
+        vga::write_at(start_row + i, col, as_str(&line[..len]), color);
         i += 1;
     }
 }

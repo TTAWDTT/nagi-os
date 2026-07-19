@@ -119,7 +119,7 @@ pub fn interval_ticks() -> u64 {
     SCHEDULE_INTERVAL_TICKS
 }
 
-pub fn dump_to_vga(start_row: usize, max_rows: usize) {
+pub fn dump_to_vga(start_row: usize, col: usize, max_rows: usize) {
     let color = vga::make_color(vga::Color::LightGray, vga::Color::Black);
     let count = TASK_COUNT.load(Ordering::Relaxed);
     let mut i = 0;
@@ -136,7 +136,12 @@ pub fn dump_to_vga(start_row: usize, max_rows: usize) {
         len = append_u64(&mut line, len, task.ticks);
         len = copy_bytes(&mut line, len, b" stack=");
         len = append_u64(&mut line, len, task.stack_page as u64);
-        vga::write_line(start_row + i, as_str(&line[..len]), color);
+        let row_color = if i == CURRENT.load(Ordering::Relaxed) {
+            vga::make_color(vga::Color::LightGreen, vga::Color::Black)
+        } else {
+            color
+        };
+        vga::write_at(start_row + i, col, as_str(&line[..len]), row_color);
         i += 1;
     }
 }

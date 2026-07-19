@@ -16,14 +16,14 @@ Each numbered section is completed, verified, and committed separately.
 
 ## 2. Unified Page System
 
-- [ ] Introduce reusable page primitives for title, badges, metrics, table rows,
+- [x] Introduce reusable page primitives for title, badges, metrics, table rows,
       diagrams, progress bars, and next-command hints.
-- [ ] Keep all command output inside the right content region.
-- [ ] Rework `help` as a categorized command index.
-- [ ] Rework `status`, `mem`, `ps`, `syscall`, `files`, and `trace` to share a
+- [x] Keep all command output inside the right content region.
+- [x] Rework `help` as a categorized command index.
+- [x] Rework `status`, `mem`, `ps`, `syscall`, `files`, and `trace` to share a
       calm title / metrics / body / next layout.
-- [ ] Highlight the current task and important changing values.
-- [ ] Add a dynamic breadcrumb/status footer.
+- [x] Highlight the current task and important changing values.
+- [x] Add a dynamic breadcrumb/status footer.
 - Verification: open each core page and confirm no sidebar overwrite or text
   outside the content region.
 

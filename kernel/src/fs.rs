@@ -101,7 +101,7 @@ pub fn count() -> usize {
     count
 }
 
-pub fn list_to_vga(start_row: usize, max_rows: usize) {
+pub fn list_to_vga(start_row: usize, col: usize, max_rows: usize) {
     let color = vga::make_color(vga::Color::LightGray, vga::Color::Black);
     let mut row = 0;
     unsafe {
@@ -116,7 +116,7 @@ pub fn list_to_vga(start_row: usize, max_rows: usize) {
                 len = append_u64(&mut line, len, file.len as u64);
                 len = copy_bytes(&mut line, len, b" page=");
                 len = append_u64(&mut line, len, file.page as u64);
-                vga::write_line(start_row + row, as_str(&line[..len]), color);
+                vga::write_at(start_row + row, col, as_str(&line[..len]), color);
                 row += 1;
             }
             i += 1;
@@ -124,7 +124,7 @@ pub fn list_to_vga(start_row: usize, max_rows: usize) {
     }
 }
 
-pub fn cat_to_vga(name: &str, row: usize) -> bool {
+pub fn cat_to_vga(name: &str, row: usize, col: usize) -> bool {
     let idx = find(name);
     if idx >= FILE_CAPACITY {
         return false;
@@ -132,8 +132,9 @@ pub fn cat_to_vga(name: &str, row: usize) -> bool {
 
     unsafe {
         let file = FILES[idx];
-        vga::write_line(
+        vga::write_at(
             row,
+            col,
             as_str(&file.content[..file.len]),
             vga::make_color(vga::Color::LightGray, vga::Color::Black),
         );
