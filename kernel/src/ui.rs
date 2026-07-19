@@ -171,6 +171,19 @@ pub fn draw_progress(row: usize, label: &str, used: usize, total: usize) {
     }
 }
 
+pub fn draw_activity(row: usize, tick: u64, text: &str) {
+    if row >= OUTPUT_ROWS {
+        return;
+    }
+    let active = vga::make_color(vga::Color::LightGreen, vga::Color::Black);
+    let muted = vga::make_color(vga::Color::DarkGray, vga::Color::Black);
+    let frames = ["|", "/", "-", "\\"];
+    let frame = frames[((tick / 25) as usize) % frames.len()];
+    vga::write_at(OUTPUT_START_ROW + row, content_text_col(), "LIVE", active);
+    vga::write_at(OUTPUT_START_ROW + row, content_text_col() + 6, frame, active);
+    vga::write_at(OUTPUT_START_ROW + row, content_text_col() + 9, clip(text, 40), muted);
+}
+
 pub fn draw_next(text: &str) {
     let muted = vga::make_color(vga::Color::DarkGray, vga::Color::Black);
     let accent = vga::make_color(vga::Color::LightCyan, vga::Color::Black);

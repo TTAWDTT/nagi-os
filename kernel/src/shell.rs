@@ -28,6 +28,8 @@ const COMMANDS: &[&str] = &[
     "sysstat",
     "ticks",
     "viz",
+    "watch",
+    "watch off",
     "mem",
     "ps",
     "sched",
@@ -118,6 +120,7 @@ static CURRENT_PAGE: AtomicUsize = AtomicUsize::new(PAGE_HOME);
 static TOUR_STEP: AtomicUsize = AtomicUsize::new(0);
 static PRESENT_STEP: AtomicUsize = AtomicUsize::new(0);
 static PRESENT_ACTIVE: AtomicBool = AtomicBool::new(false);
+static WATCH_ACTIVE: AtomicBool = AtomicBool::new(false);
 
 pub fn init() {
     set_page(PAGE_HOME);
@@ -186,6 +189,9 @@ pub fn current_page() -> &'static str {
 
 pub fn run(command: &str) {
     let command = trim(command);
+    if command != "watch" && command != "watch off" {
+        WATCH_ACTIVE.store(false, Ordering::Relaxed);
+    }
     if presentation_active() && command == "n" {
         show_present("next");
         return;
@@ -271,6 +277,8 @@ pub fn run(command: &str) {
         "sysstat" | "status" | "s" => show_sysstat(),
         "mem" | "m" => show_mem(),
         "viz" | "v" => show_viz(),
+        "watch" => show_watch(),
+        "watch off" => stop_watch(),
         "ls" | "files" | "f" => show_ls(),
         "ps" | "p" => show_ps(),
         "sched" => show_sched(),
@@ -298,6 +306,44 @@ pub fn run(command: &str) {
         }
         _ => show_unknown(command),
     }
+}
+
+pub fn watch_tick(tick: u64) {
+    if WATCH_ACTIVE.load(Ordering::Relaxed) && tick % 25 == 0 {
+        render_watch(tick);
+    }
+}
+
+fn show_watch() {
+    PRESENT_ACTIVE.store(false, Ordering::Relaxed);
+    WATCH_ACTIVE.store(true, Ordering::Relaxed);
+    set_page(PAGE_STATUS);
+    render_watch(pit::ticks());
+}
+
+fn stop_watch() {
+    WATCH_ACTIVE.store(false, Ordering::Relaxed);
+    set_page(PAGE_STATUS);
+    clear_page("LIVE WATCH");
+    ui::draw_badge(1, "PAUSED", "live dashboard stopped");
+    ui::draw_next("watch to resume / s status");
+}
+
+fn render_watch(ticks: u64) {
+    ui::clear_output("LIVE WATCH");
+    ui::draw_activity(0, ticks, "kernel activity");
+    ui::draw_metric(2, 0, "uptime sec", ticks / pit::CONFIGURED_FREQUENCY_HZ as u64);
+    ui::draw_metric(2, 1, "timer IRQ", ticks);
+    ui::draw_metric(3, 0, "keyboard IRQ", keyboard::irq_count());
+    ui::draw_metric(3, 1, "task switches", task::switches() as u64);
+    let memory = mem::stats();
+    ui::draw_metric(5, 0, "memory used", memory.used_pages as u64);
+    ui::draw_metric(5, 1, "trace events", trace::len() as u64);
+    ui::draw_metric(6, 0, "files", fs::count() as u64);
+    ui::draw_metric(6, 1, "syscalls", syscall::calls());
+    ui::draw_progress(7, "memory", memory.used_pages, memory.total_pages);
+    ui::draw_next("type any command to leave live mode");
+    ui::draw_footer_path("watch", "live 4 Hz");
 }
 
 pub fn presentation_active() -> bool {

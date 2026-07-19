@@ -29,12 +29,12 @@ Each numbered section is completed, verified, and committed separately.
 
 ## 3. Live Watch Dashboard
 
-- [ ] Add `watch` and `watch off` commands.
-- [ ] Refresh uptime, IRQs, memory, task, syscall, file, and trace metrics from
+- [x] Add `watch` and `watch off` commands.
+- [x] Refresh uptime, IRQs, memory, task, syscall, file, and trace metrics from
       the PIT interrupt at a readable interval.
-- [ ] Add compact activity indicators and stable-width values.
-- [ ] Stop watch mode automatically when a normal command is entered.
-- [ ] Avoid redraws while the keyboard handler is mutating input state.
+- [x] Add compact activity indicators and stable-width values.
+- [x] Stop watch mode automatically when a normal command is entered.
+- [x] Avoid redraws while the keyboard handler is mutating input state.
 - Verification: run `watch`, wait for visible updates, type a command, confirm
   normal shell mode resumes.
 
